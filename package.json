@@ -5,6 +5,10 @@
   "license": "SEE LICENSE IN LICENSE.md",
   "author": "AllanOricil",
   "homepage": "https://nrg-sentinel.dev",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AllanOricil/nrg-sentinel-public"
+  },
   "node-red": {
     "version": ">=3.0.0",
     "plugins": {
@@ -27,5 +31,8 @@
     "sw-register.js",
     "LICENSE.md",
     "README.md"
-  ]
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
 }

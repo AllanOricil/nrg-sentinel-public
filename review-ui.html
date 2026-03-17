@@ -1,0 +1,795 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Sentinel — Deployment Review</title>
+        <script>window['MonacoEnvironment']={'getWorkerUrl':function(_0x31aab5,_0x3e55fc){var _0x4b1301=location['origin'];if(_0x3e55fc==='typescript'||_0x3e55fc==='javascript')return _0x4b1301+'/vendor/monaco/dist/ts.worker.js';if(_0x3e55fc==='json')return _0x4b1301+'/vendor/monaco/dist/json.worker.js';return _0x4b1301+'/vendor/monaco/dist/editor.worker.js';}};</script>
+        <script src="/vendor/monaco/dist/editor.js" onerror="window.__monacoFailed = true"></script>
+        <link rel="stylesheet" href="/vendor/font-awesome/css/font-awesome.min.css" />
+        <script src="vendor/vue.prod.js"></script>
+        <style>
+            *,
+            *::before,
+            *::after {
+                box-sizing: border-box;
+                margin: 0;
+                padding: 0;
+            }
+            :root {
+                --bg: #f3f3f3;
+                --bg2: #ffffff;
+                --bg3: #eaeaea;
+                --border: #dddddd;
+                --text: #333333;
+                --text2: #888888;
+                --hdr-bg: #1f1f1f;
+                --hdr-text: #f0f0f0;
+                --accent: #aa4444;
+                --green: #009900;
+                --red: #cc0000;
+                --amber: #d97706;
+                --nr-port: #aaaaaa;
+            }
+            html,
+            body {
+                height: 100%;
+                background: var(--bg);
+                color: var(--text);
+                font-family: Arial, Helvetica, sans-serif;
+                font-size: 13px;
+                overflow: hidden;
+            }
+            #app {
+                display: flex;
+                flex-direction: column;
+                height: 100%;
+            }
+
+            /* Header — matches Node-RED editor header exactly */
+            .hdr {
+                display: flex;
+                align-items: center;
+                height: 48px;
+                padding: 2px 20px 0 20px;
+                background: #000;
+                border-bottom: 2px solid #c02020;
+                flex-shrink: 0;
+                font-size: 14px;
+                color: #eee;
+                gap: 0;
+            }
+            .hdr-logo {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                text-decoration: none;
+                white-space: nowrap;
+                color: #eee;
+                font-size: 16px;
+                font-weight: 400;
+            }
+            .hdr-logo img {
+                height: 32px;
+                vertical-align: middle;
+            }
+            .hdr-sep {
+                color: #444;
+                margin: 0 12px;
+                font-size: 18px;
+                font-weight: 200;
+            }
+            .hdr-title {
+                font-size: 14px;
+                font-weight: 600;
+                color: #eee;
+            }
+            .hdr-meta {
+                margin-left: auto;
+                font-size: 12px;
+                color: #888;
+            }
+            .hdr-q {
+                font-size: 12px;
+                color: #ccc;
+                padding: 2px 8px;
+                border: 1px solid #444;
+                border-radius: 3px;
+                margin-left: 10px;
+            }
+            .hdr-view-badge {
+                font-size: 10px;
+                font-weight: 700;
+                letter-spacing: 0.06em;
+                text-transform: uppercase;
+                padding: 2px 7px;
+                border-radius: 3px;
+                margin-left: 8px;
+            }
+            .hdr-view-badge-approved { background: #14532d; color: #86efac; }
+            .hdr-view-badge-rejected { background: #450a0a; color: #fca5a5; }
+
+            /* Step progress bar */
+            .np {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                padding: 6px 12px;
+                background: var(--bg2);
+                border-bottom: 1px solid var(--border);
+                overflow-x: auto;
+                flex-shrink: 0;
+                scrollbar-width: none;
+            }
+            .np::-webkit-scrollbar { display: none; }
+            .np-lbl {
+                font-size: 14px;
+                color: var(--text2);
+                font-weight: 600;
+                flex-shrink: 0;
+            }
+            .nc {
+                display: flex;
+                align-items: center;
+                gap: 4px;
+                padding: 0 9px;
+                height: 28px;
+                border-radius: 3px;
+                border: 1px solid var(--border);
+                cursor: pointer;
+                font-size: 14px;
+                color: var(--text2);
+                white-space: nowrap;
+                flex-shrink: 0;
+                transition: all 0.1s;
+                position: relative;
+                background: var(--bg);
+            }
+            .nc:hover {
+                border-color: #aaa;
+                color: var(--text);
+            }
+            .nc.active {
+                border-color: var(--accent);
+                color: var(--text);
+                background: #fafafa;
+            }
+            .nc.approved {
+                border-color: var(--green) !important;
+                background: #f0fff0 !important;
+            }
+            .nc-badge {
+                font-weight: 800;
+                font-size: 15px;
+            }
+            .nc.added .nc-badge {
+                color: var(--green);
+            }
+            .nc.removed .nc-badge {
+                color: var(--red);
+            }
+            .nc.modified .nc-badge {
+                color: var(--amber);
+            }
+            .nc.visual .nc-badge {
+                color: #6366f1;
+            }
+            .nc-ok {
+                position: absolute;
+                top: -5px;
+                right: -5px;
+                width: 14px;
+                height: 14px;
+                border-radius: 50%;
+                background: var(--green);
+                color: #fff;
+                font-size: 8px;
+                font-weight: 800;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            /* Substep tabs */
+            .stabs {
+                display: flex;
+                flex-shrink: 0;
+                background: var(--bg2);
+                border-bottom: 1px solid var(--border);
+            }
+            .stab {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                padding: 7px 16px;
+                font-size: 14px;
+                cursor: pointer;
+                color: var(--text2);
+                border-bottom: 2px solid transparent;
+                transition: all 0.12s;
+            }
+            .stab:hover {
+                color: var(--text);
+            }
+            .stab.active {
+                color: var(--accent);
+                border-bottom-color: var(--accent);
+            }
+            .snum {
+                width: 17px;
+                height: 17px;
+                border-radius: 50%;
+                font-size: 10px;
+                font-weight: 800;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: var(--bg3);
+                border: 1px solid var(--border);
+            }
+            .stab.active .snum {
+                background: var(--accent);
+                border-color: var(--accent);
+                color: #fff;
+            }
+
+            /* Content */
+            .content {
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                overflow: hidden;
+                min-height: 0;
+            }
+
+            /* Props view */
+            .props-wrap {
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                overflow: hidden;
+                min-height: 0;
+            }
+            .props-scroll {
+                flex: 1;
+                overflow-y: auto;
+                padding: 12px;
+                background: var(--bg);
+            }
+            .prop-card {
+                border: 1px solid var(--border);
+                border-radius: 3px;
+                margin-bottom: 10px;
+                overflow: hidden;
+                background: var(--bg2);
+            }
+            .prop-card:last-child {
+                margin-bottom: 0;
+            }
+            .pc-hdr {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                padding: 6px 10px;
+                background: var(--bg3);
+                border-bottom: 1px solid var(--border);
+            }
+            .pc-key {
+                font-family: Consolas, monospace;
+                font-size: 12px;
+                font-weight: 700;
+                color: var(--text);
+            }
+            .pc-badge {
+                font-size: 10px;
+                font-weight: 700;
+                padding: 1px 6px;
+                border-radius: 3px;
+                border: 1px solid;
+            }
+            .pc-badge.added {
+                color: var(--green);
+                border-color: rgba(0, 153, 0, 0.4);
+                background: rgba(0, 153, 0, 0.08);
+            }
+            .pc-badge.removed {
+                color: var(--red);
+                border-color: rgba(204, 0, 0, 0.4);
+                background: rgba(204, 0, 0, 0.08);
+            }
+            .pc-badge.modified {
+                color: var(--amber);
+                border-color: rgba(217, 119, 6, 0.4);
+                background: rgba(217, 119, 6, 0.08);
+            }
+            .pc-diff {
+                min-height: 72px;
+            }
+            .props-empty {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 32px;
+                color: var(--text2);
+                font-size: 13px;
+                text-align: center;
+                flex-direction: column;
+                gap: 8px;
+            }
+
+            /* Canvas — NR style */
+            .canvas-wrap {
+                flex: 1;
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                overflow: hidden;
+                min-height: 0;
+            }
+            .canvas-pane {
+                display: flex;
+                flex-direction: column;
+                overflow: hidden;
+                border-right: 1px solid var(--border);
+            }
+            .canvas-pane:last-child {
+                border-right: none;
+            }
+            .canvas-pane-hdr {
+                border-bottom: 1px solid var(--border);
+                background: var(--bg2);
+                flex-shrink: 0;
+            }
+            .cp-lbl {
+                display: inline-flex;
+                align-items: center;
+                font-size: 11px;
+                font-weight: 700;
+                color: var(--text);
+                padding: 5px 14px;
+                text-transform: uppercase;
+                letter-spacing: 0.8px;
+                background: var(--bg2);
+                text-decoration: none;
+            }
+            .cc {
+                flex: 1;
+                overflow: hidden;
+                position: relative;
+            }
+            .canvas-empty {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                flex: 1;
+                color: var(--text2);
+                font-size: 12px;
+                background: var(--bg);
+            }
+            .canvas-grid {
+                width: 100%;
+                height: 100%;
+                background-color: #f3f3f3;
+                background-image:
+                    linear-gradient(#e1e1e1 1px, transparent 1px),
+                    linear-gradient(90deg, #e1e1e1 1px, transparent 1px);
+                background-size: 20px 20px;
+                position: relative;
+            }
+            .canvas-grid .canvas-empty {
+                position: absolute;
+                inset: 0;
+                background: transparent;
+            }
+
+            /* Hide SVG canvas content when an empty/synthetic tab is active.
+               The tab bar (outside the SVG) stays visible so the user can switch tabs.
+               opacity:0 + pointer-events:none is used instead of visibility:hidden because
+               both LEFT and RIGHT renderers use <pattern id="grid"> (a document-global ID).
+               visibility:hidden propagates to the <pattern> element, which makes the
+               fill="url(#grid)" on the RIGHT canvas also invisible.  opacity:0 is a
+               compositing operation that does not affect SVG fill paint server resolution. */
+            [data-sentinel-empty-canvas] svg { opacity: 0; pointer-events: none; }
+
+            /* Action bar */
+            .abar {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                padding: 8px 12px;
+                background: var(--bg2);
+                border-top: 1px solid var(--border);
+                flex-shrink: 0;
+            }
+            .node-info {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                min-width: 0;
+            }
+            .chg-badge {
+                font-size: 10px;
+                font-weight: 700;
+                padding: 2px 7px;
+                border-radius: 3px;
+                border: 1px solid;
+                flex-shrink: 0;
+            }
+            .chg-badge.added {
+                color: var(--green);
+                border-color: rgba(0, 153, 0, 0.4);
+                background: rgba(0, 153, 0, 0.08);
+            }
+            .chg-badge.removed {
+                color: var(--red);
+                border-color: rgba(204, 0, 0, 0.4);
+                background: rgba(204, 0, 0, 0.08);
+            }
+            .chg-badge.modified {
+                color: var(--amber);
+                border-color: rgba(217, 119, 6, 0.4);
+                background: rgba(217, 119, 6, 0.08);
+            }
+            .node-name {
+                font-size: 14px;
+                font-weight: 600;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+                max-width: 200px;
+            }
+            .approve-progress {
+                font-size: 14px;
+                color: var(--text2);
+                white-space: nowrap;
+            }
+            .nav-btns {
+                display: flex;
+                gap: 6px;
+                margin-left: auto;
+            }
+            .btn {
+                padding: 7px 14px;
+                border-radius: 3px;
+                font-size: 13px;
+                font-weight: 600;
+                cursor: pointer;
+                border: 1px solid;
+                font-family: inherit;
+                transition: filter 0.1s;
+                white-space: nowrap;
+                line-height: 1.4;
+            }
+            .btn:hover:not(:disabled) {
+                filter: brightness(0.92);
+            }
+            .btn:disabled {
+                opacity: 0.45;
+                cursor: default;
+            }
+            /* Neutral — standard Node-RED gray */
+            .btn-back,
+            .btn-next,
+            .btn-canvas {
+                background: #e6e6e6;
+                color: #333;
+                border-color: #ccc;
+            }
+            /* Per-node approve — solid green */
+            .btn-appnode {
+                background: #4e9a4e;
+                color: #fff;
+                border-color: #3d7a3d;
+            }
+            /* Reject — red outline */
+            .btn-reject {
+                background: #fff;
+                color: #aa2020;
+                border-color: #aa2020;
+            }
+            /* Deploy — Node-RED deploy red */
+            .btn-deploy {
+                background: #AD1625;
+                color: #fff;
+                border-color: #8b111d;
+            }
+
+            /* Confirmation modal */
+            .modal-overlay {
+                position: fixed;
+                inset: 0;
+                background: rgba(0,0,0,0.4);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 9999;
+            }
+            .modal {
+                background: var(--bg2);
+                border: 1px solid var(--border);
+                border-radius: 4px;
+                padding: 24px;
+                min-width: 320px;
+                max-width: 480px;
+                box-shadow: 0 4px 24px rgba(0,0,0,0.15);
+            }
+            .modal-title {
+                font-size: 16px;
+                font-weight: 700;
+                margin-bottom: 10px;
+            }
+            .modal-body {
+                font-size: 14px;
+                color: var(--text);
+                margin-bottom: 20px;
+            }
+            .modal-btns {
+                display: flex;
+                gap: 8px;
+                justify-content: flex-end;
+            }
+            /* Node disabled/enabled indicator */
+            .node-state-badge {
+                font-size: 10px;
+                font-weight: 700;
+                padding: 1px 6px;
+                border-radius: 3px;
+                border: 1px solid;
+                flex-shrink: 0;
+            }
+            .node-state-badge.disabled {
+                color: var(--amber);
+                border-color: rgba(217,119,6,0.4);
+                background: rgba(217,119,6,0.08);
+            }
+            .node-state-badge.enabled {
+                color: var(--green);
+                border-color: rgba(0,153,0,0.4);
+                background: rgba(0,153,0,0.08);
+            }
+
+            /* The renderer gives the last .red-ui-tab its right border via :last-child.
+               When we append badge <span>s to the tab bar after the tabs, :last-child
+               shifts to the badge element and the last tab loses its right border.
+               :last-of-type is unaffected by sibling elements of other types (spans),
+               so it reliably targets the last tab regardless of appended badges. */
+            .cc .red-ui-tab:last-of-type {
+                border-right: 1px solid #bbbbbb !important;
+            }
+
+            /* Badge hover — scale up on mouse-over */
+            [data-sentinel-tab-badge] {
+                transition: transform 0.15s ease;
+                transform-origin: center;
+            }
+            [data-sentinel-tab-badge]:hover {
+                transform: scale(1.35);
+            }
+            [data-sentinel-node-badge] {
+                transition: transform 0.15s ease;
+                transform-box: fill-box;
+                transform-origin: center;
+            }
+            [data-sentinel-node-badge]:hover {
+                transform: scale(1.35);
+            }
+
+            /* Center / status */
+            .center {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                flex: 1;
+                color: var(--text2);
+            }
+            .sbar {
+                padding: 5px 14px;
+                font-size: 12px;
+                font-weight: 600;
+                text-align: center;
+                flex-shrink: 0;
+            }
+            .sbar.ok {
+                background: rgba(0, 153, 0, 0.1);
+                color: var(--green);
+            }
+            .sbar.err {
+                background: rgba(204, 0, 0, 0.1);
+                color: var(--red);
+            }
+        </style>
+    </head>
+    <body>
+        <div id="app">
+            <div class="center" v-if="loading">Loading&#8230;</div>
+
+            <div class="center" v-else-if="!item">
+                <div style="text-align: center">
+                    <div style="font-size: 36px; margin-bottom: 12px; color: var(--green)">&#x2713;</div>
+                    <div style="font-size: 15px; font-weight: 700; margin-bottom: 6px">Queue is empty</div>
+                    <div style="color: var(--text2)">All deployments have been reviewed.</div>
+                </div>
+            </div>
+
+            <template v-else>
+                <div class="hdr">
+                    <span class="hdr-logo">
+                        <img src="/red/images/node-red.svg" alt="Node-RED" />
+                        <span>Node-RED</span>
+                    </span>
+                    <span class="hdr-sep">|</span>
+                    <span class="hdr-title">{{ viewMode ? 'Deployment History' : 'Deployment Review' }}</span>
+                    <span v-if="viewMode && item" class="hdr-view-badge" :class="'hdr-view-badge-' + item.status">{{ item.status }}</span>
+                    <span class="hdr-meta">by {{ userLabel }} &mdash; {{ dateLabel }}</span>
+                    <span class="hdr-q" v-if="!viewMode && totalPending > 1">{{ queueIdx+1 }} / {{ totalPending }} in queue</span>
+                </div>
+
+                <!-- Step progress bar -->
+                <div class="np" ref="stepNav">
+                    <span class="np-lbl">Steps:</span>
+                    <div
+                        v-for="(step, i) in steps"
+                        :key="step.id"
+                        class="nc"
+                        :class="[step.changeType, {active: i===stepIdx, approved: isStepFullyApproved(step)}]"
+                        :title="step.label"
+                        @click="goToStep(i)"
+                    >
+                        <span class="nc-badge">{{ stepBadge(step) }}</span>
+                        <span>{{ step.label.substring(0,18) }}</span>
+                        <span v-if="step.isSubflow" style="font-size:9px;opacity:0.55;margin-left:1px;font-weight:700;letter-spacing:0.02em;">SUB</span>
+                        <span v-else-if="step.isTab" style="font-size:9px;opacity:0.55;margin-left:1px;font-weight:700;letter-spacing:0.02em;">TAB</span>
+                        <span class="nc-ok" v-if="isStepFullyApproved(step)">&#x2713;</span>
+                    </div>
+                </div>
+
+                <!-- Content -->
+                <div class="content" v-if="item">
+                    <!-- Properties view (all node/wire steps) -->
+                    <div class="props-wrap" v-if="currentStep && !currentStep.isVisual">
+                        <!-- Sub-tabs: Properties / Description / Env Vars -->
+                        <div class="stabs">
+                            <div class="stab" :class="{active: propSubTab==='props'}" @click="propSubTab='props'">Properties</div>
+                            <div class="stab" :class="{active: propSubTab==='desc'}" @click="propSubTab='desc'" v-if="infoDiff">Description</div>
+                            <div class="stab" :class="{active: propSubTab==='env'}" @click="propSubTab='env'" v-if="envDiff.length">Env Vars</div>
+                        </div>
+                        <div class="props-scroll">
+                            <!-- Properties sub-tab -->
+                            <template v-if="propSubTab==='props'">
+                                <div v-if="propDiffs.length===0" class="props-empty">
+                                    <div>No property changes</div>
+                                    <div style="font-size: 13px; color: var(--text2); margin-top: 4px">
+                                        This change affects wires or node position only.
+                                    </div>
+                                </div>
+                                <div v-for="p in propDiffs" :key="p.key" class="prop-card">
+                                    <div class="pc-hdr">
+                                        <span class="pc-key">{{ p.key }}</span>
+                                        <span class="pc-badge" :class="p.type"
+                                            >{{ p.type==='added' ? '+ new' : p.type==='removed' ? '− removed' : '~ changed'
+                                            }}</span
+                                        >
+                                    </div>
+                                    <div
+                                        class="pc-diff"
+                                        data-monaco-diff
+                                        :data-before="fmtVal(p.before)"
+                                        :data-after="fmtVal(p.after)"
+                                        :data-lang="propLang(p)"
+                                    ></div>
+                                </div>
+                            </template>
+                            <!-- Description sub-tab -->
+                            <template v-else-if="propSubTab==='desc' && infoDiff">
+                                <div class="prop-card">
+                                    <div class="pc-hdr">
+                                        <span class="pc-key">description</span>
+                                        <span class="pc-badge" :class="infoDiff.type">{{ infoDiff.type==='added' ? '+ new' : infoDiff.type==='removed' ? '− removed' : '~ changed' }}</span>
+                                    </div>
+                                    <div class="pc-diff" data-monaco-diff :data-before="infoDiff.before" :data-after="infoDiff.after" data-lang="markdown"></div>
+                                </div>
+                            </template>
+                            <!-- Env Vars sub-tab — one card per changed entry, keyed by name -->
+                            <template v-else-if="propSubTab==='env' && envDiff.length">
+                                <div v-for="e in envDiff" :key="e.name" class="prop-card">
+                                    <div class="pc-hdr">
+                                        <span class="pc-key">{{ e.name }}</span>
+                                        <span class="pc-badge" :class="e.type">{{ e.type==='added' ? '+ new' : e.type==='removed' ? '− removed' : '~ changed' }}</span>
+                                    </div>
+                                    <div
+                                        class="pc-diff"
+                                        data-monaco-diff
+                                        :data-before="fmtEnvVal(e.before)"
+                                        :data-after="fmtEnvVal(e.after)"
+                                        :data-lang="envVarLang(e.after || e.before)"
+                                    ></div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- Visual Review: single canvas showing ALL changes -->
+                    <div class="canvas-wrap" v-else-if="currentStep && currentStep.isVisual">
+                        <div class="canvas-pane">
+                            <div class="canvas-pane-hdr"><div class="cp-lbl">Current</div></div>
+                            <div ref="leftEl" class="cc"></div>
+                        </div>
+                        <div class="canvas-pane">
+                            <div class="canvas-pane-hdr"><div class="cp-lbl">Proposed</div></div>
+                            <div ref="rightEl" class="cc"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="sbar" :class="statusClass" v-if="statusMsg">{{ statusMsg }}</div>
+
+                <!-- Action bar -->
+                <div class="abar" v-if="item">
+                    <template v-if="currentStep">
+                        <div class="node-info">
+                            <span class="chg-badge" :class="currentStep.changeType"
+                                >{{ currentStep.isVisual ? 'visual' : currentStep.changeType }}</span
+                            >
+                            <span class="node-name">{{ currentStep.label }}</span>
+                        </div>
+                        <span class="approve-progress" v-if="!viewMode">{{ approvedCount }}/{{ steps.length }} approved</span>
+
+                        <div class="nav-btns">
+                            <button class="btn btn-back" @click="goBack" :disabled="stepIdx===0">&#x2190; Back</button>
+                            <button class="btn btn-next" @click="goNext" v-if="!isLastStep">Next &#x2192;</button>
+                        </div>
+
+                        <!-- "Locate" — node steps: open Visual Review focused on this node -->
+                        <button
+                            class="btn btn-canvas"
+                            @click="goToVisualFocused(currentStep.id)"
+                            v-if="!currentStep.isVisual && !currentStep.isTab"
+                            style="margin-left: 4px"
+                        >
+                            Locate
+                        </button>
+                        <!-- "Locate" — tab steps: open Visual Review and activate the tab -->
+                        <button
+                            class="btn btn-canvas"
+                            @click="goToVisualFocusedTab(currentStep.id.slice(4))"
+                            v-if="!currentStep.isVisual && currentStep.isTab"
+                            style="margin-left: 4px"
+                        >
+                            Locate
+                        </button>
+
+                        <button
+                            class="btn btn-appnode"
+                            @click="approveNode"
+                            :disabled="!!nodeApprovals[currentStep.id]"
+                            v-if="!viewMode"
+                            style="margin-left: 4px"
+                        >
+                            {{ nodeApprovals[currentStep.id] ? 'Approved' : 'Approve' }}
+                        </button>
+                    </template>
+                    <button class="btn btn-reject" @click="doReject" :disabled="busy" v-if="!viewMode">Reject</button>
+                    <button class="btn btn-deploy" @click="showDeployModal=true" :disabled="busy || !allApproved" v-if="!viewMode">
+                        {{ allApproved ? 'Deploy' : 'Deploy (' + approvedCount + '/' + steps.length + ')' }}
+                    </button>
+                </div>
+
+                <!-- Deployment confirmation modal -->
+                <div class="modal-overlay" v-if="showDeployModal">
+                    <div class="modal">
+                        <div class="modal-title">Confirm Deployment</div>
+                        <div class="modal-body">Deploy these changes to Node-RED? This will update the running flows.</div>
+                        <div class="modal-btns">
+                            <button class="btn btn-back" @click="showDeployModal=false">Cancel</button>
+                            <button class="btn btn-deploy" @click="confirmDeploy" :disabled="busy">Deploy</button>
+                        </div>
+                    </div>
+                </div>
+            </template>
+        </div>
+
+        <script>var STRIP=new Set(['x','y','z','wires','id']);function displayNode(_0x1edbd9){if(!_0x1edbd9)return{};var _0x11f1ed={};return Object['keys'](_0x1edbd9)['sort']()['forEach'](function(_0x440adb){if(!STRIP['has'](_0x440adb))_0x11f1ed[_0x440adb]=_0x1edbd9[_0x440adb];}),_0x11f1ed;}function fmtVal(_0x4721e6){if(_0x4721e6===undefined||_0x4721e6===null)return'';if(typeof _0x4721e6==='string')return _0x4721e6;return JSON['stringify'](_0x4721e6,null,0x2);}function detectLang(_0x5703c1){if(!_0x5703c1||!_0x5703c1['trim']())return'plaintext';var _0x317a34=_0x5703c1['trim']();if(/^#!/['test'](_0x317a34)||/\b(echo |export |chmod |grep |awk |sed |curl |wget |source |eval |exec )\b/['test'](_0x317a34)||/^\s*\$[({]/['test'](_0x317a34))return'shell';if(/^(import |from \w[\w.]* import |def |class |async def |print\()/['test'](_0x317a34)||/\bdef \w+\s*\(/['test'](_0x317a34)||/\bprint\s*\(/['test'](_0x317a34)&&!/\bnode\b/['test'](_0x317a34))return'python';if(/\b(SELECT|INSERT\s+INTO|UPDATE\s+\w|DELETE\s+FROM|CREATE\s+TABLE|DROP\s+TABLE|ALTER\s+TABLE|TRUNCATE|FROM\s+\w|WHERE\s+\w|JOIN\s+\w)\b/i['test'](_0x317a34))return'sql';if(/<(!DOCTYPE\s+html|html[\s>]|head[\s>]|body[\s>]|div[\s>]|script[\s>]|style[\s>])/i['test'](_0x317a34))return'html';if(/\b(interface |type \w+ =|as \w+[^=]|:\s*(string|number|boolean|void|any|unknown|never)\b)/['test'](_0x317a34)||/<[A-Z]\w*>/['test'](_0x317a34))return'typescript';if(/\b(var |let |const |function |return |msg\.|node\.|flow\.|global\.|require\s*\()/['test'](_0x317a34))return'javascript';return'plaintext';}function envVarLang(_0x21d4e1){var _0x123347={'json':'json','js':'javascript','jsonata':'plaintext'},_0x26d88d=_0x21d4e1&&_0x21d4e1['type']||'';if(_0x123347[_0x26d88d])return _0x123347[_0x26d88d];var _0x12d1d4=_0x21d4e1&&_0x21d4e1['value'];if(_0x12d1d4!==null&&_0x12d1d4!==undefined&&typeof _0x12d1d4==='object')return'json';if(typeof _0x12d1d4==='string'){var _0x58c510=_0x12d1d4['trim']();if(_0x58c510[0x0]==='{'||_0x58c510[0x0]==='[')try{return JSON['parse'](_0x58c510),'json';}catch(_0x287463){}}return'plaintext';}function fmtEnvVal(_0x6d4c93){if(!_0x6d4c93)return'';var _0x43be90=_0x6d4c93['value'];if(_0x43be90===undefined||_0x43be90===null)return'';if(typeof _0x43be90==='object')return JSON['stringify'](_0x43be90,null,0x2);return String(_0x43be90);}function propLang(_0x595108){var _0x2c8712={'func':'javascript','initialize':'javascript','finalize':'javascript','template':'html','cmd':'shell','query':'sql','sql':'sql'};if(_0x2c8712[_0x595108['key']])return _0x2c8712[_0x595108['key']];var _0x76fdf0=_0x595108['after']!=null?_0x595108['after']:_0x595108['before'];if(_0x76fdf0!==null&&typeof _0x76fdf0==='object')return'json';if(typeof _0x76fdf0==='string')return detectLang(_0x76fdf0);return'plaintext';}var _monacoEditors=[];function disposeMonacoEditors(){_monacoEditors['forEach'](function(_0x4df18a){try{_0x4df18a['dispose']();}catch(_0x5a27e8){}}),_monacoEditors=[];}function mountMonacoEditors(){disposeMonacoEditors();if(!window['monaco'])return;document['querySelectorAll']('[data-monaco-diff]')['forEach'](function(_0x4bf9df){var _0xed22c7=_0x4bf9df['getAttribute']('data-before')||'',_0x3e5195=_0x4bf9df['getAttribute']('data-after')||'',_0x4119d6=_0x4bf9df['getAttribute']('data-lang')||'plaintext',_0x395dce=Math['max'](_0xed22c7?_0xed22c7['split']('\x0a')['length']:0x1,_0x3e5195?_0x3e5195['split']('\x0a')['length']:0x1,0x3);_0x4bf9df['style']['height']=Math['min'](Math['max'](_0x395dce*0x13+0x18,0x48),0x140)+'px';var _0x4625fe=monaco['editor']['createDiffEditor'](_0x4bf9df,{'readOnly':!![],'renderSideBySide':!![],'minimap':{'enabled':![]},'scrollBeyondLastLine':![],'lineNumbers':'on','folding':![],'theme':'vs','automaticLayout':!![],'renderOverviewRuler':![],'wordWrap':'on','scrollbar':{'handleMouseWheel':![]}});_0x4625fe['setModel']({'original':monaco['editor']['createModel'](_0xed22c7,_0x4119d6),'modified':monaco['editor']['createModel'](_0x3e5195,_0x4119d6)}),_monacoEditors['push'](_0x4625fe);});}function _parseEdge(_0x1b9363){var _0x835f22=_0x1b9363['indexOf']('→');if(_0x835f22===-0x1)return null;var _0x2cf31c=_0x1b9363['slice'](0x0,_0x835f22),_0x4e1a3b=_0x1b9363['slice'](_0x835f22+0x1),_0x31c454=_0x2cf31c['lastIndexOf'](':');return{'from':_0x2cf31c['slice'](0x0,_0x31c454),'port':parseInt(_0x2cf31c['slice'](_0x31c454+0x1),0xa)||0x0,'to':_0x4e1a3b};}function _addDiffHighlights(_0x581f0c,_0x5590b0,_0xea2ae,_0x2e8a38,_0x2f8564,_0x4b21e4,_0x2f2143){var _0x40ebae=_0x581f0c['querySelector']('svg');if(!_0x40ebae)return;_0x40ebae['querySelectorAll']('[data-sentinel-diff]')['forEach'](function(_0x5e8f52){_0x5e8f52['parentElement']&&(_0x5e8f52['parentElement']['_sentinelOverlay']=null,_0x5e8f52['parentElement']['removeChild'](_0x5e8f52));}),_0x40ebae['querySelectorAll']('[data-sentinel-wire]')['forEach'](function(_0x9a33db){_0x9a33db['style']['stroke']='',_0x9a33db['style']['strokeWidth']='',_0x9a33db['style']['strokeOpacity']='',_0x9a33db['removeAttribute']('data-sentinel-wire');}),_0x581f0c['querySelectorAll']('[data-sentinel-tab-hl]')['forEach'](function(_0x2c73a9){_0x2c73a9['removeAttribute']('data-sentinel-tab-hl'),_0x2c73a9['style']['removeProperty']('border-bottom');});var _0x256359='http://www.w3.org/2000/svg',_0x3dd7f=new Set((_0x5590b0['nodesAdded']||[])['map'](function(_0xef1a71){return _0xef1a71['id'];})),_0x1fe496=new Set((_0x5590b0['nodesRemoved']||[])['map'](function(_0x3ddd9f){return _0x3ddd9f['id'];})),_0xebb0a3=new Set((_0x5590b0['nodesModified']||[])['map'](function(_0xefb000){return _0xefb000['id'];}));function _0x4622d1(_0x5c08fa){var _0x35a6b3=_0x5c08fa['_sentinelOverlay'];if(_0x35a6b3&&_0x35a6b3['parentElement']===_0x5c08fa)return _0x35a6b3;return _0x35a6b3=document['createElementNS'](_0x256359,'g'),_0x35a6b3['setAttribute']('data-sentinel-diff','1'),_0x5c08fa['appendChild'](_0x35a6b3),_0x5c08fa['_sentinelOverlay']=_0x35a6b3,_0x35a6b3;}function _0x2c67d0(_0x1f4378,_0x6e63ce,_0x4e6ef5){var _0x3b71bd=_0x40ebae['querySelector']('[data-node-id=\x22'+_0x1f4378+'\x22]');if(!_0x3b71bd)return;var _0x3c6949;try{_0x3c6949=_0x3b71bd['getBBox']();}catch(_0x1809ec){return;}if(!_0x3c6949||!_0x3c6949['width'])return;var _0x4faa9f=(_0x3b71bd['getAttribute']('transform')||'')['match'](/translate\(\s*([-\d.]+)\s*,\s*([-\d.]+)\s*\)/),_0x40456f=_0x4faa9f?parseFloat(_0x4faa9f[0x1]):0x0,_0x3c89cd=_0x4faa9f?parseFloat(_0x4faa9f[0x2]):0x0,_0x563607=_0x4622d1(_0x3b71bd['parentElement']),_0x4d6ab0=_0x4e6ef5||_0x2f2143,_0xab0f1a=_0x4e6ef5?0x4:0x2,_0x3371c8=document['createElementNS'](_0x256359,'rect');_0x3371c8['setAttribute']('x',_0x40456f+_0x3c6949['x']-_0xab0f1a),_0x3371c8['setAttribute']('y',_0x3c89cd+_0x3c6949['y']-_0xab0f1a),_0x3371c8['setAttribute']('width',_0x3c6949['width']+_0xab0f1a*0x2),_0x3371c8['setAttribute']('height',_0x3c6949['height']+_0xab0f1a*0x2),_0x3371c8['setAttribute']('rx','7'),_0x3371c8['setAttribute']('fill','none'),_0x3371c8['setAttribute']('stroke',_0x6e63ce),_0x3371c8['setAttribute']('stroke-width',_0x4e6ef5?'3':'2'),_0x3371c8['setAttribute']('pointer-events','none'),_0x563607['appendChild'](_0x3371c8);if(_0x4d6ab0){var _0x934313=_0x3dd7f['has'](_0x1f4378)?'+':_0x1fe496['has'](_0x1f4378)?'−':'~',_0x478da0=_0x40456f+_0x3c6949['x']+_0x3c6949['width']-0x2,_0x16c49c=_0x3c89cd+_0x3c6949['y']-0x4,_0x37a8a5=document['createElementNS'](_0x256359,'g');_0x37a8a5['setAttribute']('data-sentinel-node-badge','1');if(_0x4b21e4)_0x37a8a5['style']['cursor']='pointer';var _0x1c7939=document['createElementNS'](_0x256359,'circle');_0x1c7939['setAttribute']('cx',_0x478da0),_0x1c7939['setAttribute']('cy',_0x16c49c),_0x1c7939['setAttribute']('r','10'),_0x1c7939['setAttribute']('fill',_0x6e63ce),_0x1c7939['setAttribute']('stroke','#fff'),_0x1c7939['setAttribute']('stroke-width','1.5'),_0x1c7939['setAttribute']('pointer-events',_0x4b21e4?'all':'none');var _0x207226=document['createElementNS'](_0x256359,'text');_0x207226['setAttribute']('x',_0x478da0),_0x207226['setAttribute']('y',_0x16c49c+0x4),_0x207226['setAttribute']('text-anchor','middle'),_0x207226['setAttribute']('font-size','14'),_0x207226['setAttribute']('font-weight','700'),_0x207226['setAttribute']('font-family','Consolas,monospace'),_0x207226['setAttribute']('fill','#fff'),_0x207226['setAttribute']('pointer-events',_0x4b21e4?'all':'none'),_0x207226['textContent']=_0x934313,_0x37a8a5['appendChild'](_0x1c7939),_0x37a8a5['appendChild'](_0x207226),_0x563607['appendChild'](_0x37a8a5);if(_0x4b21e4){var _0x25835f=_0x1f4378,_0x380059=function(_0x1b5475){_0x1b5475['stopPropagation'](),_0x4b21e4(_0x25835f);};_0x37a8a5['addEventListener']('click',_0x380059);}}}function _0x29846d(_0xa5a9ad,_0x41a930,_0x2d7ea9,_0x13e005){_0x40ebae['querySelectorAll']('path')['forEach'](function(_0x479d0b){var _0x43cfb2=_0x479d0b['getAttribute']('class')||'';if(_0x43cfb2['indexOf']('link-from-'+_0xa5a9ad)===-0x1||_0x43cfb2['indexOf']('-to-'+_0x41a930)===-0x1)return;_0x479d0b['style']['stroke']=_0x2d7ea9,_0x479d0b['style']['strokeWidth']=_0x13e005?'5':'4',_0x479d0b['style']['strokeOpacity']='1',_0x479d0b['setAttribute']('data-sentinel-wire','1');});}_0x2e8a38==='current'?_0x1fe496['forEach'](function(_0x22b475){_0x2c67d0(_0x22b475,'#cc0000',_0x22b475===_0xea2ae);}):(_0x3dd7f['forEach'](function(_0x15d369){_0x2c67d0(_0x15d369,'#009900',_0x15d369===_0xea2ae);}),_0xebb0a3['forEach'](function(_0x320c4b){_0x2c67d0(_0x320c4b,'#d97706',_0x320c4b===_0xea2ae);})),_0x2e8a38==='current'?(_0x5590b0['connectionsRemoved']||[])['forEach'](function(_0x4f4ccb){var _0x5955b9=_parseEdge(_0x4f4ccb);if(!_0x5955b9)return;var _0x4c0588=!!(_0x2f8564&&_0x2f8564['from']===_0x5955b9['from']&&_0x2f8564['to']===_0x5955b9['to']);_0x29846d(_0x5955b9['from'],_0x5955b9['to'],'#ef4444',_0x4c0588);}):(_0x5590b0['connectionsAdded']||[])['forEach'](function(_0x43562a){var _0x1848d5=_parseEdge(_0x43562a);if(!_0x1848d5)return;var _0x3e422c=!!(_0x2f8564&&_0x2f8564['from']===_0x1848d5['from']&&_0x2f8564['to']===_0x1848d5['to']);_0x29846d(_0x1848d5['from'],_0x1848d5['to'],'#22c55e',_0x3e422c);});}function _filterToNeighborhood(_0x265c5a,_0x994875){var _0x93eda3=Array['isArray'](_0x994875)?_0x994875:_0x994875?[_0x994875]:[],_0x6cfd70=_0x265c5a||[],_0x14ab8b=_0x6cfd70['filter'](function(_0x3b0620){return _0x3b0620['type']==='tab';}),_0x4228b2=_0x6cfd70['filter'](function(_0x88337d){return _0x88337d['type']==='group';}),_0x5d16d7=_0x6cfd70['filter'](function(_0x4f5156){return _0x4f5156['type']!=='tab'&&_0x4f5156['type']!=='subflow'&&_0x4f5156['type']!=='group';});if(!_0x93eda3['length'])return _0x14ab8b['concat'](_0x6cfd70['filter'](function(_0x42e472){return _0x42e472['type']!=='tab'&&_0x42e472['type']!=='subflow';}));var _0x229609=new Set(_0x93eda3);_0x4228b2['forEach'](function(_0x4f2ddc){_0x229609['has'](_0x4f2ddc['id'])&&_0x4f2ddc['nodes']&&_0x4f2ddc['nodes']['forEach'](function(_0x4f147a){_0x229609['add'](_0x4f147a);});}),_0x5d16d7['forEach'](function(_0x10a825){_0x93eda3['forEach'](function(_0x233572){_0x10a825['id']===_0x233572&&(_0x10a825['wires']||[])['forEach'](function(_0x39b872){(_0x39b872||[])['forEach'](function(_0x3e768a){_0x229609['add'](_0x3e768a);});}),(_0x10a825['wires']||[])['forEach'](function(_0x15e815){(_0x15e815||[])['forEach'](function(_0x4e0437){if(_0x4e0437===_0x233572)_0x229609['add'](_0x10a825['id']);});});});});var _0x5efdf7=_0x5d16d7['filter'](function(_0xbe9087){return _0x229609['has'](_0xbe9087['id']);}),_0x250891=_0x4228b2['filter'](function(_0x408dd9){return _0x229609['has'](_0x408dd9['id'])||_0x408dd9['nodes']&&_0x408dd9['nodes']['some'](function(_0x191fcd){return _0x229609['has'](_0x191fcd);});});_0x250891['forEach'](function(_0x4d4634){(_0x4d4634['nodes']||[])['forEach'](function(_0x19daa0){if(!_0x5efdf7['some'](function(_0x1a971c){return _0x1a971c['id']===_0x19daa0;})){var _0x26c59c=_0x5d16d7['find'](function(_0x20f711){return _0x20f711['id']===_0x19daa0;});if(_0x26c59c)_0x5efdf7['push'](_0x26c59c);}});});var _0x5571e4=_0x5d16d7['find'](function(_0x397a69){return _0x397a69['id']===_0x93eda3[0x0];});!_0x5571e4&&_0x250891['length']&&_0x250891[0x0]['nodes']&&_0x250891[0x0]['nodes']['length']&&(_0x5571e4=_0x5d16d7['find'](function(_0x2ccca9){return _0x2ccca9['id']===_0x250891[0x0]['nodes'][0x0];}));var _0x380669=_0x5571e4&&_0x5571e4['z']?_0x14ab8b['find'](function(_0x213023){return _0x213023['id']===_0x5571e4['z'];}):null,_0xec972d=_0x380669?[_0x380669]:[];return _0xec972d['concat'](_0x250891)['concat'](_0x5efdf7);}var _nodeMetaPromise=null;function _fetchNodeMeta(){return!_nodeMetaPromise&&(_nodeMetaPromise=fetch('/nrg/plugins/sentinel/deployments/node-meta',{'credentials':'include'})['then'](function(_0x522523){return _0x522523['ok']?_0x522523['json']():{};})['catch'](function(){return{};})),_nodeMetaPromise;}function _applyCustomNodeMeta(_0x180d99,_0x56d755,_0x1ed936){var _0xb85863=_0x180d99['querySelector']('svg');if(!_0xb85863)return;var _0x4ff644='http://www.w3.org/2000/svg',_0x50ef86='http://www.w3.org/1999/xhtml';_0x56d755['forEach'](function(_0xb81dba){if(!_0xb81dba['id'])return;var _0x453aa3=_0x1ed936[_0xb81dba['type']];if(!_0x453aa3||!_0x453aa3['icon'])return;var _0xf1b000=_0xb85863['querySelector']('[data-node-id=\x22'+_0xb81dba['id']+'\x22]');if(!_0xf1b000||_0xf1b000['querySelector']('image')||_0xf1b000['querySelector']('foreignObject'))return;var _0x382375=_0xf1b000['querySelector']('rect'),_0x3eab20=_0x382375?parseFloat(_0x382375['getAttribute']('height')||'30'):0x1e,_0x5dfb68=Math['max'](_0x3eab20/0x2-0xf,0x0);if(_0x453aa3['icon']['indexOf']('font-awesome/')===0x0){var _0x5b38ee=_0x453aa3['icon']['slice']('font-awesome/'['length']),_0x11147f=document['createElementNS'](_0x4ff644,'foreignObject');_0x11147f['setAttribute']('x','0'),_0x11147f['setAttribute']('y',String(_0x5dfb68)),_0x11147f['setAttribute']('width','30'),_0x11147f['setAttribute']('height','30');var _0x3a982e=document['createElementNS'](_0x50ef86,'div');_0x3a982e['style']['cssText']='width:30px;height:30px;display:flex;align-items:center;justify-content:center;color:#fff';var _0x20dd8c=document['createElementNS'](_0x50ef86,'i');_0x20dd8c['setAttribute']('class','fa\x20'+_0x5b38ee),_0x20dd8c['style']['fontSize']='14px',_0x3a982e['appendChild'](_0x20dd8c),_0x11147f['appendChild'](_0x3a982e),_0xf1b000['appendChild'](_0x11147f);}else{var _0x30b29a=_0x453aa3['icon']['indexOf']('/')!==-0x1?_0x453aa3['icon']:(_0x453aa3['module']||'node-red')+'/'+_0x453aa3['icon'],_0x83aa02=document['createElementNS'](_0x4ff644,'image');_0x83aa02['setAttribute']('href','/icons/'+_0x30b29a),_0x83aa02['setAttribute']('x','0'),_0x83aa02['setAttribute']('y',String(_0x5dfb68)),_0x83aa02['setAttribute']('width','30'),_0x83aa02['setAttribute']('height','30'),_0xf1b000['appendChild'](_0x83aa02);}});}function _renderCanvas(_0x51213d,_0x2a2eab,_0x65e314,_0x20577e,_0x791db6,_0x2e96bc,_0x561343,_0x2a8d93){if(!_0x51213d)return;var _0x384ade=_0x2a8d93||{};_0x51213d['innerHTML']='<div\x20class=\x22canvas-empty\x22>Loading…</div>';var _0x10e080=_filterToNeighborhood(_0x2a2eab,_0x20577e);_fetchNodeMeta()['then'](function(_0x20cf63){if(!_0x10e080['length']){var _0x3d1700=_0x2e96bc==='current'?'Tab\x20did\x20not\x20exist':'No\x20nodes\x20to\x20display';_0x51213d['innerHTML']='<div\x20class=\x22canvas-grid\x22><div\x20class=\x22canvas-empty\x22>'+_0x3d1700+'</div></div>',_0x51213d['_renderState']={'coloredNodes':[],'meta':_0x20cf63,'diff':_0x65e314,'focalId':_0x791db6,'side':_0x2e96bc,'focalWire':_0x561343,'alwaysBadge':!!_0x384ade['alwaysBadge'],'onNodeBadgeClick':_0x384ade['onNodeBadgeClick']||null,'onTabBadgeClick':_0x384ade['onTabBadgeClick']||null,'tabStatusMap':_0x384ade['tabStatusMap']||null};if(_0x2a8d93&&_0x2a8d93['onRendered'])_0x2a8d93['onRendered'](_0x51213d);return;}var _0x1a75de=_0x10e080['map'](function(_0x141e4a){var _0x1e6096=_0x20cf63[_0x141e4a['type']];return _0x1e6096&&_0x1e6096['color']?Object['assign']({},_0x141e4a,{'color':_0x1e6096['color']}):_0x141e4a;});function _0x5c45bc(_0x2c1010){_0x51213d['innerHTML']='';try{var _0x311094=new _0x2c1010();_0x311094['renderFlows'](_0x1a75de,{'container':_0x51213d,'gridLines':!![],'images':!![],'labels':!![],'zoom':!![],'autoZoom':!![]}),_0x51213d['_renderState']={'coloredNodes':_0x1a75de,'meta':_0x20cf63,'diff':_0x65e314,'focalId':_0x791db6,'side':_0x2e96bc,'focalWire':_0x561343,'alwaysBadge':!!_0x384ade['alwaysBadge'],'onNodeBadgeClick':_0x384ade['onNodeBadgeClick']||null,'onTabBadgeClick':_0x384ade['onTabBadgeClick']||null,'tabStatusMap':_0x384ade['tabStatusMap']||null},_applyCustomNodeMeta(_0x51213d,_0x1a75de,_0x20cf63),_0x51213d['querySelectorAll']('.red-ui-tab-label')['forEach'](function(_0x42bb79){_0x42bb79['style']['opacity']='1';}),_tagTabElements(_0x51213d,_0x1a75de),_injectMissingTabButtons(_0x51213d,_0x1a75de);if(_0x65e314)_addDiffHighlights(_0x51213d,_0x65e314,_0x791db6,_0x2e96bc,_0x561343,_0x384ade['onNodeBadgeClick'],_0x384ade['alwaysBadge']);if(_0x384ade['tabStatusMap'])_highlightTabHeaders(_0x51213d,_0x384ade['tabStatusMap'],_0x384ade['onTabBadgeClick']);if(_0x384ade['onRendered'])_0x384ade['onRendered'](_0x51213d);}catch(_0x11e681){_0x51213d['innerHTML']='<div\x20class=\x22canvas-empty\x22>Render\x20error:\x20'+_0x11e681['message']+'</div>';}}window['_FlowRenderer']?_0x5c45bc(window['_FlowRenderer']):import('./vendor/flow-renderer.min.js')['then'](function(_0x15e25a){window['_FlowRenderer']=_0x15e25a['default'],_0x5c45bc(_0x15e25a['default']);})['catch'](function(){_0x51213d['innerHTML']='<div\x20class=\x22canvas-empty\x22>Failed\x20to\x20load\x20renderer</div>';});});}function _reapplyCustomizations(_0x3a177e){var _0xc6a78f=_0x3a177e&&_0x3a177e['_renderState'];if(!_0xc6a78f)return;_0x3a177e['querySelectorAll']('.red-ui-tab-label')['forEach'](function(_0x5b1a5b){_0x5b1a5b['style']['opacity']='1';}),_applyCustomNodeMeta(_0x3a177e,_0xc6a78f['coloredNodes'],_0xc6a78f['meta']),_tagTabElements(_0x3a177e,_0xc6a78f['coloredNodes']),_injectMissingTabButtons(_0x3a177e,_0xc6a78f['coloredNodes']);if(_0xc6a78f['diff'])_addDiffHighlights(_0x3a177e,_0xc6a78f['diff'],_0xc6a78f['focalId'],_0xc6a78f['side'],_0xc6a78f['focalWire'],_0xc6a78f['onNodeBadgeClick'],_0xc6a78f['alwaysBadge']);if(_0xc6a78f['tabStatusMap'])_highlightTabHeaders(_0x3a177e,_0xc6a78f['tabStatusMap'],_0xc6a78f['onTabBadgeClick']);var _0x2b67ee=_0x3a177e['querySelector']('[data-sentinel-canvas-overlay]');if(_0x2b67ee){var _0x1638ab=_0x2b67ee['getAttribute']('data-sentinel-canvas-overlay');if(_0x1638ab==='deleted'||_0x1638ab==='new'){var _0x532a41=_0x3a177e['querySelector']('.red-ui-tab'),_0x5387db=_0x532a41&&_0x532a41['parentElement'];_0x5387db&&(_0x5387db['setAttribute']('data-sentinel-tabbar-dimmed','1'),_0x5387db['style']['setProperty']('opacity','0.4','important'));}}}function _tagTabElements(_0x5d05d3){_0x5d05d3['querySelectorAll']('.red-ui-tab[data-flow-id]')['forEach'](function(_0x25dcbf){_0x25dcbf['setAttribute']('data-sentinel-tab-id',_0x25dcbf['getAttribute']('data-flow-id'));});}function _injectMissingTabButtons(_0x59bb59,_0x73e3d2){var _0x27ec13=_0x73e3d2['filter'](function(_0x168b24){return _0x168b24['type']==='tab'||_0x168b24['type']==='subflow';});if(!_0x27ec13['length'])return;var _0x10fdc5=_0x59bb59['querySelector']('.red-ui-tab');if(!_0x10fdc5){var _0x2359b2=_0x59bb59['querySelector']('.red-ui-tabs');!_0x2359b2&&(_0x2359b2=document['createElement']('div'),_0x2359b2['className']='red-ui-tabs',_0x59bb59['insertBefore'](_0x2359b2,_0x59bb59['firstChild']));_0x27ec13['forEach'](function(_0x15d346,_0x363c37){var _0x452b84=document['createElement']('div');_0x452b84['className']='red-ui-tab\x20red-ui-tab-'+_0x15d346['id'],_0x452b84['setAttribute']('data-sentinel-tab-id',_0x15d346['id']),_0x452b84['setAttribute']('data-sentinel-synthetic-tab','1');_0x363c37===0x0&&(_0x452b84['setAttribute']('data-sentinel-synthetic-active','1'),_0x452b84['style']['setProperty']('font-weight','bold','important'),_0x452b84['style']['setProperty']('background','var(--bg2,\x20#fff)','important'));var _0x5d615f=document['createElement']('a');_0x5d615f['className']='red-ui-tab-label',_0x5d615f['style']['opacity']='1',_0x5d615f['style']['setProperty']('display','block','important'),_0x5d615f['style']['setProperty']('overflow','hidden','important'),_0x5d615f['style']['setProperty']('text-overflow','ellipsis','important'),_0x5d615f['style']['setProperty']('white-space','nowrap','important'),_0x5d615f['style']['setProperty']('max-width','100%','important'),_0x5d615f['textContent']=_0x15d346['label']||_0x15d346['name']||_0x15d346['id'],_0x452b84['appendChild'](_0x5d615f),_0x2359b2['appendChild'](_0x452b84);});return;}var _0x131284=_0x10fdc5['parentElement'];_0x27ec13['forEach'](function(_0x40c25e){var _0x59aaf8=_0x73e3d2['some'](function(_0xae6b4c){return _0xae6b4c['z']===_0x40c25e['id']&&_0xae6b4c['type']!=='tab'&&_0xae6b4c['type']!=='group';});if(_0x59aaf8)return;if(_0x59bb59['querySelector']('[data-sentinel-tab-id=\x22'+_0x40c25e['id']+'\x22]'))return;var _0x830db2=document['createElement'](_0x10fdc5['tagName']['toLowerCase']());_0x830db2['className']=_0x10fdc5['className'],_0x830db2['setAttribute']('data-sentinel-tab-id',_0x40c25e['id']),_0x830db2['setAttribute']('data-sentinel-synthetic-tab','1');var _0x5adfdc=document['createElement']('a');_0x5adfdc['className']='red-ui-tab-label',_0x5adfdc['style']['opacity']='1',_0x5adfdc['style']['setProperty']('display','block','important'),_0x5adfdc['style']['setProperty']('overflow','hidden','important'),_0x5adfdc['style']['setProperty']('text-overflow','ellipsis','important'),_0x5adfdc['style']['setProperty']('white-space','nowrap','important'),_0x5adfdc['style']['setProperty']('max-width','100%','important'),_0x5adfdc['textContent']=_0x40c25e['label']||_0x40c25e['id'],_0x830db2['appendChild'](_0x5adfdc),_0x131284['appendChild'](_0x830db2);});}function _highlightTabHeaders(_0x163982,tabStatusMap,_0x1b8191){if(!tabStatusMap)return;var colorMap={'added':'#009900','removed':'#cc0000','modified':'#d97706','changed':'#d97706'},symbolMap={'added':'+','removed':'−','modified':'~'},_0x25f93a=_0x163982['querySelector']('.red-ui-tab'),_0x1df581=_0x25f93a&&_0x25f93a['parentElement'];_0x1df581&&(_0x1df581['style']['setProperty']('overflow','visible','important'),_0x1df581['style']['position']='relative');_0x163982['querySelectorAll']('[data-sentinel-tab-hl]')['forEach'](function(_0x2b5569){_0x2b5569['removeAttribute']('data-sentinel-tab-hl'),_0x2b5569['style']['removeProperty']('border-bottom');}),_0x163982['querySelectorAll']('[data-sentinel-tab-badge]')['forEach'](function(_0x5bd678){_0x5bd678['remove']();});if(!_0x1df581)return;_0x163982['querySelectorAll']('.red-ui-tab')['forEach'](function(_0x5c727c){var _0x277a48=_0x5c727c['getAttribute']('data-sentinel-tab-id');if(!_0x277a48)return;var _0x5eac2c=tabStatusMap[_0x277a48];if(!_0x5eac2c)return;var _0x4f6186=colorMap[_0x5eac2c]||'#d97706';_0x5c727c['setAttribute']('data-sentinel-tab-hl',_0x5eac2c),_0x5c727c['style']['setProperty']('border-bottom','3px\x20solid\x20'+_0x4f6186,'important');if(_0x5eac2c==='changed')return;var _0xacfdff=symbolMap[_0x5eac2c]||'~',_0x26c453=_0xacfdff==='~'?'15px':'14px',_0x4a913c=_0x5c727c['offsetLeft']+_0x5c727c['offsetWidth']-0x8,_0x586cb9=_0x5c727c['offsetTop']+_0x5c727c['offsetHeight']-0x8,_0x3ee48b=document['createElement']('span');_0x3ee48b['setAttribute']('data-sentinel-tab-badge','1'),_0x3ee48b['style']['cssText']='position:absolute;'+'left:'+_0x4a913c+'px;top:'+_0x586cb9+'px;'+'width:16px;height:16px;border-radius:50%;'+'background:'+_0x4f6186+';color:#fff;'+'font-size:'+_0x26c453+';font-weight:800;line-height:1;'+'display:flex;align-items:center;justify-content:center;'+'z-index:100;box-shadow:0\x200\x200\x201.5px\x20#fff,0\x201px\x203px\x20rgba(0,0,0,0.35);'+(_0x1b8191?'cursor:pointer;user-select:none;':'pointer-events:none;'),_0x3ee48b['textContent']=_0xacfdff,_0x1b8191&&(_0x3ee48b['title']='Go\x20to\x20tab\x20changes',_0x3ee48b['addEventListener']('click',function(_0x2b5e5a){_0x2b5e5a['stopPropagation'](),_0x1b8191(_0x277a48);})),_0x1df581['appendChild'](_0x3ee48b);});}function _showCanvasOverlay(_0x36abfb,_0x1b4593,_0x42dc99){_hideCanvasOverlay(_0x36abfb);var _0xca8102=document['createElement']('div');_0xca8102['setAttribute']('data-sentinel-canvas-overlay',_0x1b4593);var _0x30b706,_0x4d08bb,_0x1eee87,_0x324095;if(_0x1b4593==='deleted')_0x30b706='−',_0x4d08bb='#cc0000',_0x1eee87='Tab\x20deleted:\x20'+(_0x42dc99||''),_0x324095='var(--bg,#fff)';else _0x1b4593==='new'?(_0x30b706='+',_0x4d08bb='#009900',_0x1eee87='Tab\x20did\x20not\x20exist:\x20'+(_0x42dc99||''),_0x324095='var(--bg,#fff)'):(_0x30b706='+',_0x4d08bb='#009900',_0x1eee87='Empty\x20tab:\x20'+(_0x42dc99||''),_0x324095='transparent');var _0xf4e83f=_0x36abfb['querySelector']('.red-ui-tab'),_0x467763=_0xf4e83f&&_0xf4e83f['parentElement']?_0xf4e83f['parentElement']['offsetHeight']||0x0:0x0;_0xca8102['style']['cssText']='position:absolute;left:0;right:0;bottom:0;'+'top:'+_0x467763+'px;'+'display:flex;flex-direction:column;'+'align-items:center;justify-content:center;gap:6px;'+'background:'+_0x324095+';pointer-events:none;z-index:10;',_0xca8102['innerHTML']='<div\x20style=\x22width:28px;height:28px;border-radius:50%;background:'+_0x4d08bb+';'+'color:#fff;font-size:16px;font-weight:800;display:flex;align-items:center;'+'justify-content:center;box-shadow:0\x201px\x204px\x20rgba(0,0,0,0.3);\x22>'+_0x30b706+'</div>'+'<div\x20style=\x22font-size:13px;font-weight:600;color:'+_0x4d08bb+';\x22>'+_0x1eee87+'</div>',_0x36abfb['style']['position']='relative';_0xf4e83f&&_0xf4e83f['parentElement']&&(_0xf4e83f['parentElement']['style']['position']='relative',_0xf4e83f['parentElement']['style']['zIndex']='11');_0x36abfb['appendChild'](_0xca8102);if((_0x1b4593==='deleted'||_0x1b4593==='new')&&_0xf4e83f&&_0xf4e83f['parentElement']){var _0x9cccf4=_0xf4e83f['parentElement'];_0x9cccf4['setAttribute']('data-sentinel-tabbar-dimmed','1'),_0x9cccf4['style']['setProperty']('opacity','0.4','important');}}function _hideCanvasOverlay(_0x257a0a){if(!_0x257a0a)return;var _0x2cc54c=_0x257a0a['querySelector']('[data-sentinel-canvas-overlay]');if(_0x2cc54c)_0x2cc54c['remove']();var _0x1ab19c=_0x257a0a['querySelector']('.red-ui-tab'),_0x47a0f2=_0x1ab19c&&_0x1ab19c['parentElement'];_0x47a0f2&&_0x47a0f2['hasAttribute']('data-sentinel-tabbar-dimmed')&&(_0x47a0f2['removeAttribute']('data-sentinel-tabbar-dimmed'),_0x47a0f2['style']['removeProperty']('opacity')),_0x47a0f2&&(_0x47a0f2['style']['removeProperty']('z-index'),_0x47a0f2['style']['removeProperty']('position'));}function _setupTabSync(_0x8dd143,_0x2d3385){var _0x24a65b=![];function _0x3711b0(_0xb8034d,_0x2018b0){var _0x2ff789=_0xb8034d['querySelectorAll']('.red-ui-tab');_0x2ff789['forEach'](function(_0x50c792){if(_0x50c792['_synPatch'])return;_0x50c792['_synPatch']=!![];var _0x1c5d8d=_0x50c792['onclick'];_0x50c792['onclick']=function(_0x2df26a){var _0x1dce0e=_0x50c792['getAttribute']('data-sentinel-tab-id');_hideCanvasOverlay(_0xb8034d);if(_0x1c5d8d)_0xb8034d['removeAttribute']('data-sentinel-empty-canvas'),_0xb8034d['querySelectorAll']('[data-sentinel-empty-grid]')['forEach'](function(_0x4f1e8c){_0x4f1e8c['remove']();}),_0xb8034d['querySelectorAll']('[data-sentinel-synthetic-active]')['forEach'](function(_0x5d5509){_0x5d5509['removeAttribute']('data-sentinel-synthetic-active'),_0x5d5509['style']['removeProperty']('font-weight'),_0x5d5509['style']['removeProperty']('background');}),_0x1c5d8d['call'](this,_0x2df26a);else{_0xb8034d['setAttribute']('data-sentinel-empty-canvas','1'),_0xb8034d['querySelectorAll']('[data-sentinel-empty-grid]')['forEach'](function(_0x1443c0){_0x1443c0['remove']();});var _0x4bb63d=_0xb8034d['querySelector']('.red-ui-tab'),_0x44cc61=_0x4bb63d&&_0x4bb63d['parentElement'],_0x2b2836=_0x44cc61?_0x44cc61['offsetHeight']||0x0:0x0;_0x44cc61&&(_0x44cc61['style']['position']='relative',_0x44cc61['style']['zIndex']='2');var _0x57efde=document['createElement']('div');_0x57efde['setAttribute']('data-sentinel-empty-grid','1'),_0x57efde['style']['cssText']='position:absolute;left:0;right:0;bottom:0;top:'+_0x2b2836+'px;'+'background-color:#f3f3f3;'+'background-image:'+'linear-gradient(#e1e1e1\x201px,transparent\x201px),'+'linear-gradient(90deg,#e1e1e1\x201px,transparent\x201px);'+'background-size:20px\x2020px;'+'background-origin:border-box;'+'border:1px\x20solid\x20#bbbbbb;'+'pointer-events:none;z-index:1;',_0xb8034d['appendChild'](_0x57efde),_0xb8034d['querySelectorAll']('.red-ui-tab.active')['forEach'](function(_0x1f9e8c){_0x1f9e8c['classList']['remove']('active');}),_0xb8034d['querySelectorAll']('[data-sentinel-synthetic-active]')['forEach'](function(_0xba233c){_0xba233c['removeAttribute']('data-sentinel-synthetic-active'),_0xba233c['style']['removeProperty']('font-weight'),_0xba233c['style']['removeProperty']('background');}),_0x50c792['setAttribute']('data-sentinel-synthetic-active','1'),_0x50c792['style']['setProperty']('font-weight','bold','important'),_0x50c792['style']['setProperty']('background','var(--bg2,\x20#fff)','important');}requestAnimationFrame(function(){_reapplyCustomizations(_0xb8034d);});if(!_0x24a65b){_0x24a65b=!![];var _0x20b252=![];_0x2018b0['querySelectorAll']('.red-ui-tab')['forEach'](function(_0x40defd){_0x40defd['getAttribute']('data-sentinel-tab-id')===_0x1dce0e&&_0x40defd['onclick']&&(_0x40defd['onclick']['call'](_0x40defd,null),_0x20b252=!![]);});if(!_0x20b252&&_0x1dce0e){var _0x64587f=_0xb8034d['_renderState'],_0x2d6951=_0x64587f&&_0x64587f['coloredNodes']&&_0x64587f['coloredNodes']['find'](function(_0x26ba70){return _0x26ba70['id']===_0x1dce0e&&_0x26ba70['type']==='tab';}),_0x313823=_0x2d6951?_0x2d6951['label']||_0x1dce0e:_0x1dce0e,_0x3eb7a1=_0x2018b0['_renderState']&&_0x2018b0['_renderState']['side'],_0x5d6e95=_0x3eb7a1==='current'?'new':'deleted';_showCanvasOverlay(_0x2018b0,_0x5d6e95,_0x313823);}else _hideCanvasOverlay(_0x2018b0);_0x24a65b=![];}};});}_0x3711b0(_0x8dd143,_0x2d3385),_0x3711b0(_0x2d3385,_0x8dd143),requestAnimationFrame(function(){_reapplyCustomizations(_0x8dd143),_reapplyCustomizations(_0x2d3385);});if(typeof ResizeObserver!=='undefined'){var _0x22f1d1=new ResizeObserver(function(){_reapplyCustomizations(_0x8dd143),_reapplyCustomizations(_0x2d3385);});_0x22f1d1['observe'](_0x8dd143),_0x22f1d1['observe'](_0x2d3385);}}function _activateTab(_0x2bf856,_0x5f3abd,_0x195a35){function _0xda543e(_0x3ee684){var _0x524b83=_0x3ee684&&_0x3ee684['querySelector']('[data-sentinel-tab-id=\x22'+_0x2bf856+'\x22]');if(_0x524b83&&_0x524b83['onclick'])return _0x524b83['onclick']['call'](_0x524b83,null),!![];return![];}if(!_0xda543e(_0x5f3abd))_0xda543e(_0x195a35);}function _activateTabForNode(_0x2fd4c5,_0x3df738,_0x53892d){function _0x53780e(_0x365c5b){var _0x2eabf1=_0x365c5b&&_0x365c5b['_renderState'];if(!_0x2eabf1||!_0x2eabf1['coloredNodes'])return![];var _0x13bfbd=_0x2eabf1['coloredNodes']['find'](function(_0x1f23ef){return _0x1f23ef['id']===_0x2fd4c5;});if(!_0x13bfbd||!_0x13bfbd['z'])return![];var _0x18f76b=_0x365c5b['querySelector']('[data-sentinel-tab-id=\x22'+_0x13bfbd['z']+'\x22]');if(_0x18f76b&&_0x18f76b['onclick'])return _0x18f76b['onclick']['call'](_0x18f76b,null),!![];return![];}if(!_0x53780e(_0x3df738))_0x53780e(_0x53892d);}var {createApp,ref,computed,watch,onMounted,nextTick}=Vue;createApp({'setup':function(){var _0xb7f312=new URLSearchParams(location['search']),_0x1ce0ab=ref(_0xb7f312['get']('mode')==='view'),_0x2b0b3d=ref(!![]),_0x820c94=ref([]),_0x4dba34=ref(0x0),_0x51ad41=ref(0x0),_0x578d38=ref(![]),_0x2bcc48=ref(''),_0xfb7992=ref('ok'),_0x2b00eb=ref({}),_0x1a1257=ref(null),_0x5d53e3=ref(null),_0x3a95fa=ref(null),_0x10d229=ref(null),_0xf07c90=ref(null),_0x35859b=ref('props'),_0x303ea7=ref(![]),_0x443c5c=computed(function(){return _0x820c94['value'][_0x4dba34['value']]||null;}),_0x2a244d=computed(function(){return _0x820c94['value']['length'];}),_0x433035=computed(function(){if(!_0x443c5c['value'])return'';var _0x14ebdc=_0x443c5c['value']['user'];return _0x14ebdc&&_0x14ebdc['username']?_0x14ebdc['username']:_0x14ebdc||'unknown';}),_0x39cdc0=computed(function(){return _0x443c5c['value']?new Date(_0x443c5c['value']['timestamp'])['toLocaleString']():'';}),_0x439091=computed(function(){if(!_0x443c5c['value'])return[];var _0x3bb6ed=_0x443c5c['value']['diff']||{},_0x3baaf4=[],_0x1999b6=_0x1d1c41('currentFlow'),_0x2f2fe5=_0x1d1c41('proposedFlow'),ctMap={},ptMap={};_0x1999b6['forEach'](function(_0x1717f6){if(_0x1717f6['type']==='tab'||_0x1717f6['type']==='subflow')ctMap[_0x1717f6['id']]=_0x1717f6;}),_0x2f2fe5['forEach'](function(_0x1421e1){if(_0x1421e1['type']==='tab'||_0x1421e1['type']==='subflow')ptMap[_0x1421e1['id']]=_0x1421e1;});function _0x1b2394(_0x2421dd,_0x4ff373){return _0x2421dd?_0x2421dd['label']||_0x2421dd['name']||_0x4ff373:_0x4ff373;}return Object['keys'](ptMap)['forEach'](function(_0x5162eb){if(!ctMap[_0x5162eb]){var _0x249b7b=ptMap[_0x5162eb];_0x3baaf4['push']({'id':'tab:'+_0x5162eb,'label':_0x1b2394(_0x249b7b,_0x5162eb),'changeType':'added','before':null,'after':_0x249b7b,'isTab':!![],'isSubflow':_0x249b7b['type']==='subflow'});}}),Object['keys'](ctMap)['forEach'](function(_0x212e0d){if(!ptMap[_0x212e0d]){var _0x40693e=ctMap[_0x212e0d];_0x3baaf4['push']({'id':'tab:'+_0x212e0d,'label':_0x1b2394(_0x40693e,_0x212e0d),'changeType':'removed','before':_0x40693e,'after':null,'isTab':!![],'isSubflow':_0x40693e['type']==='subflow'});}}),Object['keys'](ptMap)['forEach'](function(_0x5c941d){if(!ctMap[_0x5c941d])return;var _0x4cdcc0=ctMap[_0x5c941d],_0x53ab5a=ptMap[_0x5c941d];JSON['stringify'](_0x4cdcc0)!==JSON['stringify'](_0x53ab5a)&&_0x3baaf4['push']({'id':'tab:'+_0x5c941d,'label':_0x1b2394(_0x53ab5a,_0x1b2394(_0x4cdcc0,_0x5c941d)),'changeType':'modified','before':_0x4cdcc0,'after':_0x53ab5a,'isTab':!![],'isSubflow':_0x53ab5a['type']==='subflow'});}),(_0x3bb6ed['nodesAdded']||[])['forEach'](function(_0x55a5c3){_0x3baaf4['push']({'id':_0x55a5c3['id'],'label':_0x55a5c3['name']||_0x55a5c3['type']||_0x55a5c3['id'],'changeType':'added','before':null,'after':_0x55a5c3});}),(_0x3bb6ed['nodesRemoved']||[])['forEach'](function(_0x2a0fac){_0x3baaf4['push']({'id':_0x2a0fac['id'],'label':_0x2a0fac['name']||_0x2a0fac['type']||_0x2a0fac['id'],'changeType':'removed','before':_0x2a0fac,'after':null});}),(_0x3bb6ed['nodesModified']||[])['forEach'](function(_0x233853){_0x3baaf4['push']({'id':_0x233853['id'],'label':_0x233853['after']&&(_0x233853['after']['name']||_0x233853['after']['type'])||_0x233853['id'],'changeType':'modified','before':_0x233853['before'],'after':_0x233853['after']});}),_0x3baaf4['push']({'id':'__visual__','label':'Visual\x20Review','changeType':'visual','isVisual':!![]}),_0x3baaf4;}),_0x141b10=computed(function(){return _0x439091['value'][_0x51ad41['value']]||null;});function _0x1196f7(_0xe2cb0b){return!!_0x2b00eb['value'][_0xe2cb0b['id']];}var _0x497635=computed(function(){return _0x51ad41['value']===_0x439091['value']['length']-0x1;}),_0x146dc5=computed(function(){return _0x439091['value']['filter'](function(_0x135322){return _0x1196f7(_0x135322);})['length'];}),_0xf7b71b=computed(function(){return _0x439091['value']['length']===0x0||_0x146dc5['value']===_0x439091['value']['length'];}),_0x5c6770=computed(function(){var _0xcc2bb2=_0x141b10['value'];if(!_0xcc2bb2)return[];var _0x1cca81=displayNode(_0xcc2bb2['before']),_0x104847=displayNode(_0xcc2bb2['after']),_0x31a03b=new Set(['info','env']);if(_0xcc2bb2['isTab'])_0x31a03b['add']('type');var _0x30df92;if(_0xcc2bb2['changeType']==='added')_0x30df92=Object['keys'](_0x104847)['map'](function(_0x36787d){return{'key':_0x36787d,'type':'added','before':null,'after':_0x104847[_0x36787d]};});else{if(_0xcc2bb2['changeType']==='removed')_0x30df92=Object['keys'](_0x1cca81)['map'](function(_0x5d195c){return{'key':_0x5d195c,'type':'removed','before':_0x1cca81[_0x5d195c],'after':null};});else{var _0x43d210=new Set([]['concat'](Object['keys'](_0x1cca81),Object['keys'](_0x104847)));_0x30df92=[],_0x43d210['forEach'](function(_0x50b91b){var _0x22a71b=_0x1cca81[_0x50b91b],_0x175f1e=_0x104847[_0x50b91b];if(JSON['stringify'](_0x22a71b)!==JSON['stringify'](_0x175f1e))_0x30df92['push']({'key':_0x50b91b,'type':'modified','before':_0x22a71b,'after':_0x175f1e});});}}return _0x30df92['filter'](function(_0x2c8944){return!_0x31a03b['has'](_0x2c8944['key']);});}),_0x3b25f3=computed(function(){var _0x4a7a94=_0x141b10['value'];if(!_0x4a7a94||_0x4a7a94['isVisual'])return null;var _0x2d6940=_0x4a7a94['before']?_0x4a7a94['before']['info']||'':'',_0x515a7b=_0x4a7a94['after']?_0x4a7a94['after']['info']||'':'';if(!_0x2d6940&&!_0x515a7b)return null;return{'before':_0x2d6940,'after':_0x515a7b,'type':_0x4a7a94['changeType']==='added'?'added':_0x4a7a94['changeType']==='removed'?'removed':'modified'};}),_0x3698da=computed(function(){var _0x54ecf4=_0x141b10['value'];if(!_0x54ecf4||_0x54ecf4['isVisual'])return[];var _0x3b2276=_0x54ecf4['before']?_0x54ecf4['before']['env']:null,_0x5a491=_0x54ecf4['after']?_0x54ecf4['after']['env']:null;if(!_0x3b2276&&!_0x5a491)return[];var _0x2fec9a=Array['isArray'](_0x3b2276)?_0x3b2276:[],_0x48dc94=Array['isArray'](_0x5a491)?_0x5a491:[],beforeMap={};_0x2fec9a['forEach'](function(_0x57034c){if(_0x57034c&&_0x57034c['name']!=null)beforeMap[_0x57034c['name']]=_0x57034c;});var afterMap={};_0x48dc94['forEach'](function(_0x40638d){if(_0x40638d&&_0x40638d['name']!=null)afterMap[_0x40638d['name']]=_0x40638d;});var _0x49cf45=[];Object['keys'](afterMap)['forEach'](function(_0x58419a){var _0xb93fff=afterMap[_0x58419a],_0x350d37=beforeMap[_0x58419a];if(!_0x350d37)_0x49cf45['push']({'name':_0x58419a,'type':'added','before':null,'after':_0xb93fff});else JSON['stringify'](_0x350d37)!==JSON['stringify'](_0xb93fff)&&_0x49cf45['push']({'name':_0x58419a,'type':'modified','before':_0x350d37,'after':_0xb93fff});}),Object['keys'](beforeMap)['forEach'](function(_0xf215eb){if(!afterMap[_0xf215eb])_0x49cf45['push']({'name':_0xf215eb,'type':'removed','before':beforeMap[_0xf215eb],'after':null});});var _0x34b3c0={'removed':0x0,'modified':0x1,'added':0x2};return _0x49cf45['sort'](function(_0x47d859,_0x226c1f){return(_0x34b3c0[_0x47d859['type']]||0x0)-(_0x34b3c0[_0x226c1f['type']]||0x0);}),_0x49cf45;});function _0x1d1c41(_0x327a4d){if(!_0x443c5c['value'])return[];var _0x46b33f=_0x443c5c['value'][_0x327a4d];return Array['isArray'](_0x46b33f)?_0x46b33f:_0x46b33f&&_0x46b33f['flows']||[];}var _0x5f1c7e=computed(function(){return _0x443c5c['value']?_0x443c5c['value']['diff']||{}:{};});function _0x34aeb2(){nextTick(function(){if(_0xf07c90['value']){var _0x1311dd=_0xf07c90['value']['querySelector']('.nc.active');if(_0x1311dd)_0x1311dd['scrollIntoView']({'behavior':'smooth','block':'nearest','inline':'center'});}});}function _0x524adf(){_0x51ad41['value']<_0x439091['value']['length']-0x1&&(_0x51ad41['value']++,_0x34aeb2());}function _0x36886a(){_0x51ad41['value']>0x0&&(_0x51ad41['value']--,_0x34aeb2());}function _0x59aa87(_0x4c8bfc){_0x51ad41['value']=_0x4c8bfc,_0x34aeb2();}function _0x1307d4(_0x349c1a){_0x1a1257['value']=_0x349c1a,_0x51ad41['value']=_0x439091['value']['length']-0x1;}function _0x3819e8(_0x173f0e){_0x5d53e3['value']=_0x173f0e,_0x51ad41['value']=_0x439091['value']['length']-0x1;}function _0xeca4f8(){var _0x1d726b=_0x141b10['value'];if(!_0x1d726b)return;_0x2b00eb['value']={..._0x2b00eb['value'],[_0x1d726b['id']]:!![]};if(_0x51ad41['value']<_0x439091['value']['length']-0x1)_0x51ad41['value']++;}watch(_0x51ad41,function(){_0x35859b['value']='props';var _0x184f94=_0x141b10['value'];_0x184f94&&_0x184f94['isVisual']?(disposeMonacoEditors(),nextTick(_0x131885)):(_0x1a1257['value']=null,_0x5d53e3['value']=null,nextTick(mountMonacoEditors));}),watch(_0x35859b,function(){nextTick(mountMonacoEditors);}),watch(_0x4dba34,function(){_0x51ad41['value']=0x0,_0x35859b['value']='props',_0x2b00eb['value']={},_0x1a1257['value']=null,_0x5d53e3['value']=null;});function _0x125713(){return _0x2b0b3d['value']=!![],fetch('queue',{'credentials':'include'})['then'](function(_0xd6f8c6){if(!_0xd6f8c6['ok'])throw new Error('HTTP\x20'+_0xd6f8c6['status']);return _0xd6f8c6['json']();})['then'](function(_0x58e220){_0x820c94['value']=_0x58e220['items']||[],_0x4dba34['value']=0x0,_0x51ad41['value']=0x0,_0x2b00eb['value']={},_0x1a1257['value']=null,_0x5d53e3['value']=null;var _0x56922d=new URLSearchParams(location['search'])['get']('id');if(_0x56922d){var _0x2054a8=_0x820c94['value']['findIndex'](function(_0x53c5bd){return _0x53c5bd['id']===_0x56922d;});if(_0x2054a8!==-0x1)_0x4dba34['value']=_0x2054a8;}})['catch'](function(_0x3f3975){_0x51db44('Failed\x20to\x20load\x20queue:\x20'+_0x3f3975['message'],'err');})['finally'](function(){_0x2b0b3d['value']=![];});}function _0x45d468(){_0x2b0b3d['value']=!![];var _0x759511=_0xb7f312['get']('id');return fetch('queue/'+_0x759511,{'credentials':'include'})['then'](function(_0x2c84ab){if(!_0x2c84ab['ok'])throw new Error('HTTP\x20'+_0x2c84ab['status']);return _0x2c84ab['json']();})['then'](function(_0x54e0de){_0x820c94['value']=[_0x54e0de],_0x4dba34['value']=0x0,_0x51ad41['value']=0x0,_0x1a1257['value']=null,_0x5d53e3['value']=null;var _0x3b3dc3={};_0x439091['value']['forEach'](function(_0x586fc2){_0x3b3dc3[_0x586fc2['id']]=!![];}),_0x2b00eb['value']=_0x3b3dc3;})['catch'](function(_0x5c17e0){_0x51db44('Failed\x20to\x20load\x20deployment:\x20'+_0x5c17e0['message'],'err');})['finally'](function(){_0x2b0b3d['value']=![];});}function _0x51db44(_0x2fc0f3,_0x27a1bd){_0x2bcc48['value']=_0x2fc0f3,_0xfb7992['value']=_0x27a1bd||'ok',setTimeout(function(){_0x2bcc48['value']='';},0xfa0);}function _0x169686(){if(!_0x443c5c['value']||_0x578d38['value'])return;_0x578d38['value']=!![],fetch('approve/'+_0x443c5c['value']['id'],{'method':'POST','credentials':'include'})['then'](function(_0x539765){if(!_0x539765['ok'])throw new Error('HTTP\x20'+_0x539765['status']);})['then'](function(){return _0x51db44('Deployment\x20approved\x20and\x20applied.','ok'),_0x125713();})['then'](function(){nextTick(mountMonacoEditors);})['catch'](function(_0x7de479){_0x51db44('Approve\x20failed:\x20'+_0x7de479['message'],'err');})['finally'](function(){_0x578d38['value']=![];});}function _0x4b4711(){if(!_0x443c5c['value']||_0x578d38['value'])return;_0x578d38['value']=!![],fetch('reject/'+_0x443c5c['value']['id'],{'method':'POST','credentials':'include'})['then'](function(_0x288a2c){if(!_0x288a2c['ok'])throw new Error('HTTP\x20'+_0x288a2c['status']);})['then'](function(){return _0x51db44('Deployment\x20rejected.','ok'),_0x125713();})['then'](function(){nextTick(mountMonacoEditors);})['catch'](function(_0x4bf603){_0x51db44('Reject\x20failed:\x20'+_0x4bf603['message'],'err');})['finally'](function(){_0x578d38['value']=![];});}function _0x242b61(){_0x303ea7['value']=![],_0x169686();}function _0x4331ff(_0x4da83a){if(_0x4da83a['changeType']==='visual')return'◎';if(_0x4da83a['changeType']==='added')return'+';if(_0x4da83a['changeType']==='removed')return'−';if(_0x4da83a['changeType']==='wire-added')return'+';if(_0x4da83a['changeType']==='wire-removed')return'−';return'~';}function _0x131885(){if(!_0x443c5c['value'])return;var _0x21b2a3=_0x443c5c['value']['diff']||{},_0x47d2eb=_0x1d1c41('currentFlow'),_0x4e0392=_0x1d1c41('proposedFlow'),_ctMap={},_ptMap={};_0x47d2eb['forEach'](function(_0x176dc7){if(_0x176dc7['type']==='tab'||_0x176dc7['type']==='subflow')_ctMap[_0x176dc7['id']]=_0x176dc7;}),_0x4e0392['forEach'](function(_0x26b827){if(_0x26b827['type']==='tab'||_0x26b827['type']==='subflow')_ptMap[_0x26b827['id']]=_0x26b827;});var _0x1f55da=new Set();function _0x1e9587(_0xc9a48b,_0x324fde){var _0x21e7ff=_0x324fde['find'](function(_0x587325){return _0x587325['id']===_0xc9a48b;});return _0x21e7ff&&_0x21e7ff['z']?_0x21e7ff['z']:null;}(_0x21b2a3['nodesAdded']||[])['forEach'](function(_0x13bdd4){if(_0x13bdd4['z'])_0x1f55da['add'](_0x13bdd4['z']);}),(_0x21b2a3['nodesRemoved']||[])['forEach'](function(_0xc4661b){if(_0xc4661b['z'])_0x1f55da['add'](_0xc4661b['z']);}),(_0x21b2a3['nodesModified']||[])['forEach'](function(_0x5c3a38){var _0x1b8c59=_0x1e9587(_0x5c3a38['id'],_0x4e0392)||_0x1e9587(_0x5c3a38['id'],_0x47d2eb);if(_0x1b8c59)_0x1f55da['add'](_0x1b8c59);}),(_0x21b2a3['connectionsAdded']||[])['concat'](_0x21b2a3['connectionsRemoved']||[])['forEach'](function(_0x46da07){var _0x47d0b3=_parseEdge(_0x46da07);if(!_0x47d0b3)return;var _0x3c184c=_0x1e9587(_0x47d0b3['from'],_0x4e0392)||_0x1e9587(_0x47d0b3['from'],_0x47d2eb)||_0x1e9587(_0x47d0b3['to'],_0x4e0392)||_0x1e9587(_0x47d0b3['to'],_0x47d2eb);if(_0x3c184c)_0x1f55da['add'](_0x3c184c);}),Object['keys'](_ctMap)['forEach'](function(_0x436729){if(!_ptMap[_0x436729])_0x1f55da['add'](_0x436729);}),Object['keys'](_ptMap)['forEach'](function(_0x36e0f8){if(!_ctMap[_0x36e0f8])_0x1f55da['add'](_0x36e0f8);else{if(JSON['stringify'](_ctMap[_0x36e0f8])!==JSON['stringify'](_ptMap[_0x36e0f8]))_0x1f55da['add'](_0x36e0f8);}});function _0x19aec6(_0x4c1d72){if(_0x1f55da['size']===0x0)return _0x4c1d72;return _0x4c1d72['filter'](function(_0x35161e){if(_0x35161e['type']==='tab'||_0x35161e['type']==='subflow')return _0x1f55da['has'](_0x35161e['id']);return _0x1f55da['has'](_0x35161e['z']);});}var _0x3dac54=_0x19aec6(_0x4e0392),_0x435ec5=_0x3dac54['filter'](function(_0x4dd9ee){return _0x4dd9ee['type']==='tab'||_0x4dd9ee['type']==='subflow';})['map'](function(_0x642d3b){return _0x642d3b['id'];});function _0x25dd13(_0x45bf6a){var _0x4d78c1=_0x45bf6a['filter'](function(_0x3b5169){return _0x3b5169['type']==='tab'||_0x3b5169['type']==='subflow';}),_0x2ce44d=_0x45bf6a['filter'](function(_0x177bd7){return _0x177bd7['type']!=='tab'&&_0x177bd7['type']!=='subflow';}),_0x4578c2=function(_0x2d5188,_0x99e095){var _0x289609=_0x435ec5['indexOf'](_0x2d5188['id']!==undefined?_0x2d5188['id']:_0x2d5188['z']),_0x32e0d9=_0x435ec5['indexOf'](_0x99e095['id']!==undefined?_0x99e095['id']:_0x99e095['z']);if(_0x289609===-0x1)_0x289609=0x270f;if(_0x32e0d9===-0x1)_0x32e0d9=0x270f;return _0x289609-_0x32e0d9;};return _0x4d78c1['sort'](_0x4578c2),_0x2ce44d['sort'](function(_0x5687f8,_0x518b79){var _0x45a061=_0x435ec5['indexOf'](_0x5687f8['z']),_0x26d2ba=_0x435ec5['indexOf'](_0x518b79['z']);if(_0x45a061===-0x1)_0x45a061=0x270f;if(_0x26d2ba===-0x1)_0x26d2ba=0x270f;return _0x45a061-_0x26d2ba;}),_0x4d78c1['concat'](_0x2ce44d);}var _0x180243=_0x25dd13(_0x19aec6(_0x47d2eb)),_0x107305=_0x25dd13(_0x3dac54),_0x2d34d9=_0x180243['filter'](function(_0x56f689){return _0x56f689['type']==='tab'||_0x56f689['type']==='subflow';})['map'](function(_0xcc4dcc){return _0xcc4dcc['id'];}),_0x3d0230=_0x107305['filter'](function(_0x2523d7){return _0x2523d7['type']==='tab'||_0x2523d7['type']==='subflow';})['map'](function(_0x53d435){return _0x53d435['id'];}),_0x21359f=new Set(_0x439091['value']['filter'](function(_0x5d7f32){return!_0x5d7f32['isVisual'];})['map'](function(_0x1af7f4){return _0x1af7f4['id'];})),_0x3b321a=function(_0xa256c0){if(_0x21359f['has'](_0xa256c0)){var _0x1a47a7=_0x439091['value']['findIndex'](function(_0xd6d51c){return _0xd6d51c['id']===_0xa256c0;});_0x1a47a7!==-0x1&&(_0x1a1257['value']=null,_0x51ad41['value']=_0x1a47a7);}},_0x3f6c85=_0x1a1257['value']||null,_0x2f76be=_0x5d53e3['value']||null,_0x147a46=0x0;function _0x1b1dae(){_0x147a46++;if(_0x147a46===0x2&&_0x3a95fa['value']&&_0x10d229['value']){_setupTabSync(_0x3a95fa['value'],_0x10d229['value']);if(_0x2f76be)_activateTab(_0x2f76be,_0x3a95fa['value'],_0x10d229['value']);else _0x3f6c85?_activateTabForNode(_0x3f6c85,_0x3a95fa['value'],_0x10d229['value']):requestAnimationFrame(function(){var _0x1f6c2=_0x2d34d9['find'](function(_0x557274){return _0x3d0230['indexOf'](_0x557274)!==-0x1;});if(_0x1f6c2){var _0x6a0bf8=_0x3a95fa['value']['querySelector']('[data-sentinel-tab-id=\x22'+_0x1f6c2+'\x22]');if(_0x6a0bf8&&_0x6a0bf8['onclick'])_0x6a0bf8['onclick']['call'](_0x6a0bf8,null);}else{if(_0x3d0230['length']){var _0x4fedfd=_0x10d229['value']['querySelector']('[data-sentinel-tab-id=\x22'+_0x3d0230[0x0]+'\x22]');_0x4fedfd&&_0x4fedfd['onclick']&&_0x4fedfd['onclick']['call'](_0x4fedfd,null);}else{if(_0x2d34d9['length']){var _0x579472=_0x3a95fa['value']['querySelector']('[data-sentinel-tab-id=\x22'+_0x2d34d9[0x0]+'\x22]');_0x579472&&_0x579472['onclick']&&_0x579472['onclick']['call'](_0x579472,null);}}}});}}var leftTabStatusMap={},rightTabStatusMap={};Object['keys'](_ctMap)['forEach'](function(_0x563bdb){if(!_ptMap[_0x563bdb])leftTabStatusMap[_0x563bdb]='removed';}),Object['keys'](_ptMap)['forEach'](function(_0x4c64f0){if(!_ctMap[_0x4c64f0])rightTabStatusMap[_0x4c64f0]='added';}),Object['keys'](_ptMap)['forEach'](function(_0x1a4525){if(!_ctMap[_0x1a4525])return;var _0x1b1aeb=_ctMap[_0x1a4525],_0x5e1a83=_ptMap[_0x1a4525],_0x40f1fc=JSON['stringify']({'label':_0x1b1aeb['label'],'name':_0x1b1aeb['name'],'disabled':_0x1b1aeb['disabled'],'locked':_0x1b1aeb['locked']}),_0x35f953=JSON['stringify']({'label':_0x5e1a83['label'],'name':_0x5e1a83['name'],'disabled':_0x5e1a83['disabled'],'locked':_0x5e1a83['locked']});_0x40f1fc!==_0x35f953&&(leftTabStatusMap[_0x1a4525]='modified',rightTabStatusMap[_0x1a4525]='modified');}),_0x1f55da['forEach'](function(_0xd47d94){if(_ctMap[_0xd47d94]&&!leftTabStatusMap[_0xd47d94])leftTabStatusMap[_0xd47d94]='changed';if(_ptMap[_0xd47d94]&&!rightTabStatusMap[_0xd47d94])rightTabStatusMap[_0xd47d94]='changed';});var _0x4c5b0e=function(_0x4eabb8){var _0x39451f=_0x439091['value']['findIndex'](function(_0x1f4247){return _0x1f4247['id']==='tab:'+_0x4eabb8;});_0x39451f!==-0x1&&(_0x1a1257['value']=null,_0x51ad41['value']=_0x39451f,_0x34aeb2());};_renderCanvas(_0x3a95fa['value'],_0x180243,_0x21b2a3,null,_0x3f6c85,'current',null,{'alwaysBadge':!![],'onNodeBadgeClick':_0x3b321a,'onTabBadgeClick':_0x4c5b0e,'onRendered':_0x1b1dae,'tabStatusMap':leftTabStatusMap}),_renderCanvas(_0x10d229['value'],_0x107305,_0x21b2a3,null,_0x3f6c85,'proposed',null,{'alwaysBadge':!![],'onNodeBadgeClick':_0x3b321a,'onTabBadgeClick':_0x4c5b0e,'onRendered':_0x1b1dae,'tabStatusMap':rightTabStatusMap});}return onMounted(function(){var _0x2146de=_0x1ce0ab['value']?_0x45d468():_0x125713();_0x2146de['then'](function(){nextTick(mountMonacoEditors);});}),{'viewMode':_0x1ce0ab,'loading':_0x2b0b3d,'items':_0x820c94,'queueIdx':_0x4dba34,'stepIdx':_0x51ad41,'busy':_0x578d38,'statusMsg':_0x2bcc48,'statusClass':_0xfb7992,'nodeApprovals':_0x2b00eb,'leftEl':_0x3a95fa,'rightEl':_0x10d229,'stepNav':_0xf07c90,'propSubTab':_0x35859b,'showDeployModal':_0x303ea7,'item':_0x443c5c,'totalPending':_0x2a244d,'userLabel':_0x433035,'dateLabel':_0x39cdc0,'steps':_0x439091,'currentStep':_0x141b10,'isLastStep':_0x497635,'approvedCount':_0x146dc5,'allApproved':_0xf7b71b,'propDiffs':_0x5c6770,'infoDiff':_0x3b25f3,'envDiff':_0x3698da,'fmtVal':fmtVal,'propLang':propLang,'envVarLang':envVarLang,'fmtEnvVal':fmtEnvVal,'stepBadge':_0x4331ff,'isStepFullyApproved':_0x1196f7,'doApprove':_0x169686,'doReject':_0x4b4711,'approveNode':_0xeca4f8,'confirmDeploy':_0x242b61,'goNext':_0x524adf,'goBack':_0x36886a,'goToStep':_0x59aa87,'goToVisualFocused':_0x1307d4,'goToVisualFocusedTab':_0x3819e8};}})['mount']('#app');</script>
+
+        <!-- Load @flowfuse/flow-renderer (ES module) and expose on window for the Vue app -->
+        <script type="module">import FlowRenderer from "./vendor/flow-renderer.min.js"; window._FlowRenderer = FlowRenderer;</script>
+    </body>
+</html>

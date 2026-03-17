@@ -16,84 +16,81 @@ A security layer for Node-RED that detects and blocks common attack vectors at r
 The table below is updated automatically after each CI run on `main`.
 
 <!-- DEMO-TEST-RESULTS:START -->
-
-| #   | Demo                        | Result | Node-RED |
-| --- | --------------------------- | :----: | :------: |
-| 01  | Monkey Patching             |   ✅   | `4.1.7`  |
-| 02  | Hook Injection              |   ✅   | `4.1.7`  |
-| 03  | Credential Theft            |   ✅   | `4.1.7`  |
-| 04  | Wire Manipulation           |   ✅   | `4.1.7`  |
-| 05  | Direct Receive Injection    |   ✅   | `4.1.7`  |
-| 06  | Express Middleware          |   ✅   | `4.1.7`  |
-| 07  | EventEmitter Hijack         |   ✅   | `4.1.7`  |
-| 08  | Node Enumeration            |   ✅   | `4.1.7`  |
-| 09  | Prototype Pollution         |   ✅   | `4.1.7`  |
-| 10  | Flow File Tampering         |   ✅   | `4.1.7`  |
-| 11  | Message Provenance          |   ✅   | `4.1.7`  |
-| 12  | Settings.js Tampering       |   ✅   | `4.1.7`  |
-| 13  | Sentinel Source Tampering   |   ✅   | `4.1.7`  |
-| 14  | Express Route Backdoor      |   ✅   | `4.1.7`  |
-| 15  | Config Node Z-Forgery       |   ✅   | `4.1.7`  |
-| 16  | Symbol Property Bypass      |   ✅   | `4.1.7`  |
-| 17  | EventEmitter Enumeration    |   ✅   | `4.1.7`  |
-| 18  | Deep Stack Bypass           |   ✅   | `4.1.7`  |
-| 19  | HTTP Route Deletion         |   ✅   | `4.1.7`  |
-| 20  | Child Process Exec          |   ✅   | `4.1.7`  |
-| 22  | FS Read                     |   ✅   | `4.1.7`  |
-| 23  | Process Env Exfiltration    |   ✅   | `4.1.7`  |
-| 24  | Process Exit DoS            |   ✅   | `4.1.7`  |
-| 25  | VM Sandbox Escape           |   ✅   | `4.1.7`  |
-| 26  | Worker Thread Escape        |   ✅   | `4.1.7`  |
-| 27  | Network Socket Exfiltration |   ✅   | `4.1.7`  |
-| 28  | Registry Type Hijack        |   ✅   | `4.1.7`  |
-| 29  | Settings Mutation           |   ✅   | `4.1.7`  |
-| 30  | Comms Publish Spoofing      |   ✅   | `4.1.7`  |
-| 31  | Context Permissions         |   ✅   | `4.1.7`  |
-| 32  | Flows Inject                |   ✅   | `4.1.7`  |
-| 33  | Node Event Hijack           |   ✅   | `4.1.7`  |
-
-_Last updated: 2026-03-15T20:53:58Z_
-
+| # | Demo | Result | Node-RED |
+|---|------|:------:|:--------:|
+| 01 | Monkey Patching | ✅ | `4.1.7` |
+| 02 | Hook Injection | ✅ | `4.1.7` |
+| 03 | Credential Theft | ✅ | `4.1.7` |
+| 04 | Wire Manipulation | ✅ | `4.1.7` |
+| 05 | Direct Receive Injection | ✅ | `4.1.7` |
+| 06 | Express Middleware | ✅ | `4.1.7` |
+| 07 | EventEmitter Hijack | ✅ | `4.1.7` |
+| 08 | Node Enumeration | ✅ | `4.1.7` |
+| 09 | Prototype Pollution | ✅ | `4.1.7` |
+| 10 | Flow File Tampering | ✅ | `4.1.7` |
+| 11 | Message Provenance | ✅ | `4.1.7` |
+| 12 | Settings.js Tampering | ✅ | `4.1.7` |
+| 13 | Sentinel Source Tampering | ✅ | `4.1.7` |
+| 14 | Express Route Backdoor | ✅ | `4.1.7` |
+| 15 | Config Node Z-Forgery | ✅ | `4.1.7` |
+| 16 | Symbol Property Bypass | ✅ | `4.1.7` |
+| 17 | EventEmitter Enumeration | ✅ | `4.1.7` |
+| 18 | Deep Stack Bypass | ✅ | `4.1.7` |
+| 19 | HTTP Route Deletion | ✅ | `4.1.7` |
+| 20 | Child Process Exec | ✅ | `4.1.7` |
+| 22 | FS Read | ✅ | `4.1.7` |
+| 23 | Process Env Exfiltration | ✅ | `4.1.7` |
+| 24 | Process Exit DoS | ✅ | `4.1.7` |
+| 25 | VM Sandbox Escape | ✅ | `4.1.7` |
+| 26 | Worker Thread Escape | ✅ | `4.1.7` |
+| 27 | Network Socket Exfiltration | ✅ | `4.1.7` |
+| 28 | Registry Type Hijack | ✅ | `4.1.7` |
+| 29 | Settings Mutation | ✅ | `4.1.7` |
+| 30 | Comms Publish Spoofing | ✅ | `4.1.7` |
+| 31 | Context Permissions | ✅ | `4.1.7` |
+| 32 | Flows Inject | ✅ | `4.1.7` |
+| 33 | Node Event Hijack | ✅ | `4.1.7` |
+_Last updated: 2026-03-17T08:03:19Z_
 <!-- DEMO-TEST-RESULTS:END -->
 
 ## Demos
 
 Each demo is a self-contained scenario that shows an attack against Node-RED and how Sentinel blocks it.
 
-| #   | Demo                        | Attack vector                                                                    |
-| --- | --------------------------- | -------------------------------------------------------------------------------- |
-| 01  | Monkey Patching             | Overwrites Node-RED core functions at runtime                                    |
-| 02  | Hook Injection              | Registers malicious `onSend`/`onReceive` hooks                                   |
-| 03  | Credential Theft            | Reads decrypted credentials from live node instances                             |
-| 04  | Wire Manipulation           | Rewires flow connections to exfiltrate data                                      |
-| 05  | Direct Receive Injection    | Bypasses auth chain via `node.receive()`                                         |
-| 06  | Express Middleware          | Installs rogue HTTP middleware on the admin API                                  |
-| 07  | EventEmitter Hijack         | Intercepts internal Node-RED events                                              |
-| 08  | Node Enumeration            | Maps every node in the runtime via `eachNode()`                                  |
-| 09  | Prototype Pollution         | Pollutes `Object.prototype` to affect all objects                                |
-| 10  | Flow File Tampering         | Modifies the flows file on disk                                                  |
-| 11  | Message Provenance          | Detects and blocks injected messages via HMAC tagging                            |
-| 12  | Settings.js Tampering       | Modifies settings.js at runtime to inject capability grants                      |
-| 13  | Sentinel Source Tampering   | Patches Sentinel's preload.js on disk to disable protection                      |
-| 14  | Express Route Backdoor      | Registers a hidden admin API route via `httpAdmin.get()`                         |
-| 15  | Config Node Z-Forgery       | Fakes config-node identity to bypass credential access rules                     |
-| 16  | Symbol Property Bypass      | Uses Symbol-keyed properties to evade proxy guard interception                   |
-| 17  | EventEmitter Enumeration    | Enumerates all `RED.events` listeners to map internal runtime wiring             |
-| 18  | Deep Stack Bypass           | Chains anonymous wrappers to push the malicious frame outside the guard window   |
-| 19  | HTTP Route Deletion         | Deletes existing Express routes to disable authentication endpoints              |
-| 20  | Child Process Exec          | Spawns a shell command via `child_process` to execute arbitrary OS commands      |
-| 22  | FS Read                     | Reads `settings.js` via `require('fs')` to extract the credential secret         |
-| 23  | Process Env Exfiltration    | Reads `process.env` to harvest injected secrets and API keys                     |
-| 24  | Process Exit DoS            | Calls `process.exit()` from a message handler to kill the runtime                |
-| 25  | VM Sandbox Escape           | Uses `require('vm')` to run code outside Sentinel's `Module._load` hooks         |
-| 26  | Worker Thread Escape        | Spawns a worker thread whose module loader is invisible to Sentinel              |
-| 27  | Network Socket Exfiltration | Creates a raw TCP socket to bypass the HTTP URL allowlist                        |
-| 28  | Registry Type Hijack        | Calls `registerType('inject', ...)` to silently replace a built-in node type     |
-| 29  | Settings Mutation           | Reads or writes `RED.settings` to extract the credential secret or add backdoors |
-| 30  | Comms Publish Spoofing      | Pushes fake notifications to the editor via `RED.comms.publish()`                |
-| 31  | Context Permissions         | Reads or writes another node's context store without a grant                     |
-| 32  | Flows Inject                | Injects a malicious node into the running flow via the flows API                 |
-| 33  | Node Event Hijack           | Spies on or silences another node's input handler via EventEmitter APIs          |
+| #   | Demo                                                               | Attack vector                                                                    |
+| --- | ------------------------------------------------------------------ | -------------------------------------------------------------------------------- |
+| 01  | Monkey Patching                     | Overwrites Node-RED core functions at runtime                                    |
+| 02  | Hook Injection                       | Registers malicious `onSend`/`onReceive` hooks                                   |
+| 03  | Credential Theft                   | Reads decrypted credentials from live node instances                             |
+| 04  | Wire Manipulation                 | Rewires flow connections to exfiltrate data                                      |
+| 05  | Direct Receive Injection   | Bypasses auth chain via `node.receive()`                                         |
+| 06  | Express Middleware               | Installs rogue HTTP middleware on the admin API                                  |
+| 07  | EventEmitter Hijack             | Intercepts internal Node-RED events                                              |
+| 08  | Node Enumeration                   | Maps every node in the runtime via `eachNode()`                                  |
+| 09  | Prototype Pollution             | Pollutes `Object.prototype` to affect all objects                                |
+| 10  | Flow File Tampering                | Modifies the flows file on disk                                                  |
+| 11  | Message Provenance               | Detects and blocks injected messages via HMAC tagging                            |
+| 12  | Settings.js Tampering            | Modifies settings.js at runtime to inject capability grants                      |
+| 13  | Sentinel Source Tampering | Patches Sentinel's preload.js on disk to disable protection                      |
+| 14  | Express Route Backdoor       | Registers a hidden admin API route via `httpAdmin.get()`                         |
+| 15  | Config Node Z-Forgery         | Fakes config-node identity to bypass credential access rules                     |
+| 16  | Symbol Property Bypass       | Uses Symbol-keyed properties to evade proxy guard interception                   |
+| 17  | EventEmitter Enumeration   | Enumerates all `RED.events` listeners to map internal runtime wiring             |
+| 18  | Deep Stack Bypass                 | Chains anonymous wrappers to push the malicious frame outside the guard window   |
+| 19  | HTTP Route Deletion             | Deletes existing Express routes to disable authentication endpoints              |
+| 20  | Child Process Exec               | Spawns a shell command via `child_process` to execute arbitrary OS commands      |
+| 22  | FS Read                                     | Reads `settings.js` via `require('fs')` to extract the credential secret         |
+| 23  | Process Env Exfiltration                | Reads `process.env` to harvest injected secrets and API keys                     |
+| 24  | Process Exit DoS                       | Calls `process.exit()` from a message handler to kill the runtime                |
+| 25  | VM Sandbox Escape                        | Uses `require('vm')` to run code outside Sentinel's `Module._load` hooks         |
+| 26  | Worker Thread Escape                  | Spawns a worker thread whose module loader is invisible to Sentinel              |
+| 27  | Network Socket Exfiltration          | Creates a raw TCP socket to bypass the HTTP URL allowlist                        |
+| 28  | Registry Type Hijack                | Calls `registerType('inject', ...)` to silently replace a built-in node type     |
+| 29  | Settings Mutation                 | Reads or writes `RED.settings` to extract the credential secret or add backdoors |
+| 30  | Comms Publish Spoofing                | Pushes fake notifications to the editor via `RED.comms.publish()`                |
+| 31  | Context Permissions             | Reads or writes another node's context store without a grant                     |
+| 32  | Flows Inject                           | Injects a malicious node into the running flow via the flows API                 |
+| 33  | Node Event Hijack                 | Spies on or silences another node's input handler via EventEmitter APIs          |
 
 ## Capability grants
 
@@ -428,6 +425,7 @@ sentinel: {
 
 This pattern is useful when multiple consumer packages need the same privileged operation: centralise it in one well-audited service package, grant only that package the capability, and consumers remain unprivileged. The service becomes the policy enforcement point — it decides what it exposes, and Sentinel enforces that nothing bypasses it.
 
+
 ## Module access gates
 
 Sentinel intercepts `require()` for dangerous built-in modules and blocks specific methods within them. When a call is blocked, Sentinel prints a warning to the Node-RED console and tells you exactly which grant to add.
@@ -590,6 +588,33 @@ sentinel: {
 }
 ```
 
+## Local / Host install
+
+Install Sentinel into your Node-RED user directory:
+
+```bash
+cd ~/.node-red
+npm install @allanoricil/nrg-sentinel
+```
+
+Node-RED auto-discovers plugins in `~/.node-red/node_modules/`, so the Sentinel sidebar and plugin features load automatically on the next restart. No extra configuration is needed for that.
+
+To activate the **preload guard** (module-level interception), set `NODE_OPTIONS` before starting Node-RED:
+
+```bash
+NODE_OPTIONS="--require @allanoricil/nrg-sentinel/preload" node-red
+```
+
+To make this permanent, add it to your startup script, systemd unit, or shell profile:
+
+```bash
+# ~/.bashrc or ~/.zshrc
+export NODE_OPTIONS="--require @allanoricil/nrg-sentinel/preload"
+```
+
+> **Why not `./node_modules/.bin/node-red`?**
+> The `node-red` package itself is not installed inside `~/.node-red` — it lives in the global `node_modules`. The Sentinel wrapper binary handles both cases automatically: when `node-red` is co-installed in the same `node_modules` tree (Docker) it resolves the entrypoint directly; otherwise it finds `node-red` via PATH. Either way, the preload is injected via `NODE_OPTIONS`.
+
 ## Docker
 
 The [`Dockerfile`](Dockerfile) produces a hardened production image. The security model rests on three layers.
@@ -629,19 +654,32 @@ This bypasses `node_modules/.bin/` entirely. A malicious package that declares `
 The wrapper:
 
 1. Verifies `settings.js` signature before Node-RED starts (if `NRG_SENTINEL_PUBLIC_KEY` is set)
-2. Injects the Sentinel preload via `--require`
+2. Injects the Sentinel preload by prepending `--require preload.js` to `NODE_OPTIONS`, then spawns the real `node-red` binary
+
+In the Docker image both packages share `/usr/src/nodered/node_modules/`, so the wrapper resolves the `node-red` JS entrypoint via `require.resolve` and runs it with `node` directly. When installed in a userDir (`~/.node-red`) the fallback is to find `node-red` in PATH.
 
 ### Quick start
 
-```bash
-# Build
-docker build -t nrg-sentinel .
+Pre-built images are published to Docker Hub on every release:
 
+```bash
+docker pull allanoricil/nrg-sentinel:latest
+# or pin to a specific version
+docker pull allanoricil/nrg-sentinel:1.2.3
+```
+
+To build from source instead:
+
+```bash
+docker build -t nrg-sentinel .
+```
+
+```bash
 # Run (no signature verification)
 docker run -p 1880:1880 \
   -v $(pwd)/settings.js:/etc/nodered/settings.js:ro \
   -v $(pwd)/data:/data \
-  nrg-sentinel
+  allanoricil/nrg-sentinel:latest
 
 # Run (with signature verification)
 docker run -p 1880:1880 \
@@ -650,7 +688,7 @@ docker run -p 1880:1880 \
   -v $(pwd)/data:/data \
   -e NRG_SENTINEL_PUBLIC_KEY=/run/secrets/sentinel.pub \
   --mount type=secret,id=sentinel_pub,target=/run/secrets/sentinel.pub \
-  nrg-sentinel
+  allanoricil/nrg-sentinel:latest
 ```
 
 ## Licensing
