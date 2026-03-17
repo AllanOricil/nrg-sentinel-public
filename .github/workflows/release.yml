@@ -1,0 +1,83 @@
+name: Release
+
+on:
+    push:
+        branches: [main]
+    workflow_dispatch:
+        inputs:
+            dry_run:
+                description: "Dry run (no publish, no git tags)"
+                type: boolean
+                default: false
+
+permissions:
+    contents: write
+    issues: write
+    pull-requests: write
+    id-token: write # required for npm provenance
+
+jobs:
+    release:
+        name: Release
+        runs-on: ubuntu-latest
+        outputs:
+            new_release_published: ${{ steps.release.outputs.new_release_published }}
+            new_release_version: ${{ steps.release.outputs.new_release_version }}
+        env:
+            NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+            # Tells npm to attach a provenance attestation on every publish.
+            # Equivalent to passing --provenance on the CLI.
+            NPM_CONFIG_PROVENANCE: "true"
+
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+                  persist-credentials: false
+
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: "22"
+                  registry-url: "https://registry.npmjs.org"
+
+            - name: Release
+              id: release
+              uses: cycjimmy/semantic-release-action@v4
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+              with:
+                  dry_run: ${{ inputs.dry_run || false }}
+
+    docker:
+        name: Docker (multi-platform)
+        needs: release
+        if: ${{ !inputs.dry_run && needs.release.outputs.new_release_published == 'true' }}
+        runs-on: ubuntu-latest
+
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  ref: v${{ needs.release.outputs.new_release_version }}
+
+            - name: Set up QEMU
+              uses: docker/setup-qemu-action@v3
+
+            - name: Set up Docker Buildx
+              uses: docker/setup-buildx-action@v3
+
+            - name: Log in to Docker Hub
+              uses: docker/login-action@v3
+              with:
+                  username: ${{ secrets.DOCKERHUB_USERNAME }}
+                  password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+            - name: Build and push
+              uses: docker/build-push-action@v6
+              with:
+                  context: .
+                  platforms: linux/amd64,linux/arm64,linux/arm/v7
+                  push: true
+                  tags: |
+                      allanoricil/nrg-sentinel:latest
+                      allanoricil/nrg-sentinel:${{ needs.release.outputs.new_release_version }}

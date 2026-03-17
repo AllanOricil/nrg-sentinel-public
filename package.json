@@ -1,0 +1,31 @@
+{
+  "name": "@allanoricil/nrg-sentinel",
+  "version": "1.0.0",
+  "description": "Node-RED Runtime Security Hardening",
+  "license": "SEE LICENSE IN LICENSE.md",
+  "author": "AllanOricil",
+  "homepage": "https://nrg-sentinel.dev",
+  "node-red": {
+    "version": ">=3.0.0",
+    "plugins": {
+      "nrg-sentinel": "plugin.js"
+    }
+  },
+  "bin": {
+    "node-red": "bin/node-red.js"
+  },
+  "files": [
+    "bin/",
+    "vendor/",
+    "plugin.js",
+    "plugin.html",
+    "preload.js",
+    "review-ui.html",
+    "safe-deployment-queue.js",
+    "flow-diff.js",
+    "service-worker.js",
+    "sw-register.js",
+    "LICENSE.md",
+    "README.md"
+  ]
+}
