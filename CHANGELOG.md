@@ -1,3 +1,10 @@
+## [1.0.2](https://github.com/AllanOricil/nrg-sentinel/compare/v1.0.1...v1.0.2) (2026-03-18)
+
+
+### Bug Fixes
+
+* **release:** sync _public-repo/site/ to public repo on release ([3cb627b](https://github.com/AllanOricil/nrg-sentinel/commit/3cb627ba420c6eae248a6fbcbb55e62d06fe3cf4))
+
 ## [1.0.1](https://github.com/AllanOricil/nrg-sentinel/compare/v1.0.0...v1.0.1) (2026-03-18)
 
 
