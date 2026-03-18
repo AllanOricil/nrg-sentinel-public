@@ -1,3 +1,13 @@
+## [1.0.1](https://github.com/AllanOricil/nrg-sentinel/compare/v1.0.0...v1.0.1) (2026-03-18)
+
+
+### Bug Fixes
+
+* close config-node credential access by default ([b968e08](https://github.com/AllanOricil/nrg-sentinel/commit/b968e089078521b04aaf2f973dd0385b7083979c))
+* **e2e:** grant node:read to demo 34 readers and fix stale Demo 35 labels ([5737e9b](https://github.com/AllanOricil/nrg-sentinel/commit/5737e9bf5a31feb65978ae15b44a90ac00709047))
+* **launcher:** update support contact email and minor style fixes ([9964b02](https://github.com/AllanOricil/nrg-sentinel/commit/9964b0275be71749d561f3b1ec113e1635e0eb96))
+* replace placeholder URLs with allanoricil.github.io/nrg-sentinel-public ([46b9eca](https://github.com/AllanOricil/nrg-sentinel/commit/46b9ecaf65517da6507910898a34b0501b328098))
+
 # 1.0.0 (2026-03-17)
 
 

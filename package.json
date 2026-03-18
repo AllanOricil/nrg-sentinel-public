@@ -1,10 +1,10 @@
 {
   "name": "@allanoricil/nrg-sentinel",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Node-RED Runtime Security Hardening",
   "license": "SEE LICENSE IN LICENSE.md",
   "author": "AllanOricil",
-  "homepage": "https://nrg-sentinel.dev",
+  "homepage": "https://allanoricil.github.io/nrg-sentinel-public/",
   "repository": {
     "type": "git",
     "url": "https://github.com/AllanOricil/nrg-sentinel-public"

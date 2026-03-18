@@ -38,6 +38,7 @@ The table below is updated automatically after each CI run on `main`.
 | 18 | Deep Stack Bypass | ✅ | `4.1.7` |
 | 19 | HTTP Route Deletion | ✅ | `4.1.7` |
 | 20 | Child Process Exec | ✅ | `4.1.7` |
+| 21 | SW Fetch Interception | — | — | browser-only — verify via `start-interactive.sh` |
 | 22 | FS Read | ✅ | `4.1.7` |
 | 23 | Process Env Exfiltration | ✅ | `4.1.7` |
 | 24 | Process Exit DoS | ✅ | `4.1.7` |
@@ -50,7 +51,8 @@ The table below is updated automatically after each CI run on `main`.
 | 31 | Context Permissions | ✅ | `4.1.7` |
 | 32 | Flows Inject | ✅ | `4.1.7` |
 | 33 | Node Event Hijack | ✅ | `4.1.7` |
-_Last updated: 2026-03-17T08:03:19Z_
+| 34 | Config Node Credentials | ✅ | `4.1.7` |
+_Last updated: 2026-03-18T03:18:54Z_
 <!-- DEMO-TEST-RESULTS:END -->
 
 ## Demos
@@ -79,6 +81,7 @@ Each demo is a self-contained scenario that shows an attack against Node-RED and
 | 18  | Deep Stack Bypass                 | Chains anonymous wrappers to push the malicious frame outside the guard window   |
 | 19  | HTTP Route Deletion             | Deletes existing Express routes to disable authentication endpoints              |
 | 20  | Child Process Exec               | Spawns a shell command via `child_process` to execute arbitrary OS commands      |
+| 21  | SW Fetch Interception                      | Browser-only: editor script uses `fetch()` to exfiltrate data; Service Worker blocks it via the network-policy allowlist |
 | 22  | FS Read                                     | Reads `settings.js` via `require('fs')` to extract the credential secret         |
 | 23  | Process Env Exfiltration                | Reads `process.env` to harvest injected secrets and API keys                     |
 | 24  | Process Exit DoS                       | Calls `process.exit()` from a message handler to kill the runtime                |
@@ -91,6 +94,7 @@ Each demo is a self-contained scenario that shows an attack against Node-RED and
 | 31  | Context Permissions             | Reads or writes another node's context store without a grant                     |
 | 32  | Flows Inject                           | Injects a malicious node into the running flow via the flows API                 |
 | 33  | Node Event Hijack                 | Spies on or silences another node's input handler via EventEmitter APIs          |
+| 34  | Config Node Credentials    | Interactive: explores open / restricted / locked config-node credential access   |
 
 ## Capability grants
 
@@ -208,16 +212,17 @@ If credentials were silently self-readable, `node:credentials:read` would only b
 
 #### Reading credentials from a config node referenced in its config
 
-Config nodes exist specifically to hold and share credentials with the consumer nodes that reference them. Sentinel opens `node:credentials:read` for config nodes by default — no capability grant is needed for either the config node package or the consumer.
+Config node credentials are closed by default, the same as every other node type. A consumer that needs to access `configNode.credentials` directly must either hold `node:credentials:read` in its grant list, or be listed in the config node type's `nodeTypes` entry in `.sentinel-grants.json`.
 
-The idiomatic pattern is for the config node to read its own credentials and expose them as plain properties:
+The idiomatic pattern avoids the credential proxy entirely: the config node reads `this.credentials` in its own constructor (Sentinel only proxies nodes returned from `getNode()`, not a node's own `this`), stores the secret as a plain property, and consumers read that plain property:
 
 ```js
 // node-red-contrib-influxdb/index.js
 module.exports = function (RED) {
     function InfluxConfigNode(config) {
         RED.nodes.createNode(this, config);
-        // Config node reads its own credentials — allowed by default (no grant needed).
+        // Reads this.credentials on the raw this — not via a getNode() proxy.
+        // No credential cap needed because Sentinel only guards getNode() return values.
         this.token = this.credentials.token;
         this.host = config.host;
     }
@@ -225,7 +230,7 @@ module.exports = function (RED) {
 
     function InfluxWriteNode(config) {
         RED.nodes.createNode(this, config);
-        // Consumer accesses the config node's plain property — no credential cap needed.
+        // Consumer reads the plain property — no credential cap needed.
         var configNode = RED.nodes.getNode(config.configId);
         this.on("input", function (msg) {
             writeToInflux(configNode.host, configNode.token, msg.payload);
@@ -237,7 +242,7 @@ module.exports = function (RED) {
 ```
 
 ```js
-// settings.js — no node:credentials:read needed for either package
+// settings.js — no node:credentials:read needed for either package under this pattern
 sentinel: {
     allow: {
         "node-red-contrib-influxdb": ["registry:register"],
@@ -245,15 +250,11 @@ sentinel: {
 }
 ```
 
-If a consumer accesses `configNode.credentials.token` directly instead of a plain property, it also works without any grant — the config node default rule still applies because the proxy belongs to a config node.
-
-**Why config nodes are open by default:** if consumers were required to have `node:credentials:read` to access a config node, every single package that uses any config node — influxdb-write, mqtt-out, http-request, anything that reads a username or token from a config node — would need the grant. In a real installation with a dozen contrib packages, `node:credentials:read` would appear in nearly every entry in `settings.js`, and it would cease to be a meaningful security signal. You would no longer be able to tell at a glance which packages are genuinely handling raw secrets versus simply using a config node the way Node-RED was designed.
-
-The config node pattern is a declared contract between Node-RED packages: the config node's author published it specifically to share its credentials, and the consumer's author explicitly wired to it in their node definition. An operator who installs both has implicitly accepted that relationship. Making it require an extra grant would add friction to a legitimate, universal pattern without adding meaningful security. Operators who want to restrict which packages can read a specific config node's credentials can override this default via `.sentinel-grants.json` in the userDir — see the end of this section.
+If a consumer accesses `configNode.credentials.token` directly via the proxy returned by `getNode()`, that access goes through Sentinel's capability check. The consumer's package needs `node:credentials:read`, or the config node type must list it in a `nodeTypes` entry.
 
 #### Reading credentials from a node that is not a config node
 
-If a node reads `.credentials` from an arbitrary non-config node (one it does not reference via its own config), the **target node's package** must have `node:credentials:read` in its grant list. Sentinel captures the owning package at `createNode` time and uses it for every subsequent access through that proxy:
+If a node reads `.credentials` from an arbitrary non-config node, the **accessing package** must have `node:credentials:read` in its grant list. Sentinel walks the call stack from `getNode()` to identify the calling package and checks its grants:
 
 ```js
 // node-red-contrib-reader/index.js — wants to read credentials from node-red-contrib-target
@@ -262,8 +263,8 @@ module.exports = function (RED) {
         RED.nodes.createNode(this, config);
         this.on("input", function (msg) {
             var target = RED.nodes.getNode(config.targetId);
-            // The proxy for `target` was created with node-red-contrib-target as the
-            // owning package. Sentinel checks that package's grants, not this one's.
+            // Sentinel identifies node-red-contrib-reader as the caller and checks
+            // its grants — not the target node's owning package.
             var secret = target.credentials.secret;
             this.send(msg);
         });
@@ -273,46 +274,127 @@ module.exports = function (RED) {
 ```
 
 ```js
-// settings.js — the TARGET package needs node:credentials:read, not the reader
+// settings.js — the ACCESSOR needs node:credentials:read, not the target's package
 sentinel: {
     allow: {
-        "node-red-contrib-reader":  ["registry:register"],
-        "node-red-contrib-target":  ["registry:register", "node:credentials:read"],
+        "node-red-contrib-reader":  ["registry:register", "node:credentials:read"],
+        "node-red-contrib-target":  ["registry:register"],
     },
 }
 ```
 
-**Why the target's package is checked, not the accessor's:** if it were the accessor's package that needed the grant, then any package granted `node:credentials:read` could call `RED.nodes.eachNode()` (with `node:list`) and iterate every node in the runtime, reading credentials from all of them in one sweep — a complete credential harvest with a single grant. The target-based check prevents that: having `node:credentials:read` only gives a package access to credentials stored in its _own_ nodes. It cannot reach into another package's nodes unless that package also has the grant, which the operator would have to explicitly add.
+**How the dual-axis check works:** `node:credentials:read` in the accessor's grant list (step 2) is a broad capability — it lets that package read `.credentials` from any node it obtains via `getNode()`. The `nodeTypes` section in `.sentinel-grants.json` provides the complementary target-side control (step 1): the target node type's author can list exactly which caller packages are approved, granting them access without requiring a broad package grant. Either axis alone is sufficient to allow the access. If neither passes, the proxy returns `undefined` for `credentials`.
 
-If it were the accessor's grant that mattered, `node:credentials:read` would effectively mean "read any node's credentials in the entire runtime." Instead it means "this package's nodes are authorized to handle credentials," which is a much narrower and more auditable claim.
-
-Sentinel also looks for a `.sentinel-grants.json` file in the **userDir** (next to `settings.js`). This file is the backing store for the **Sentinel editor panel** — the Node-RED UI exposes admin API routes that read and write it directly, so operators can manage target permissions through the browser without touching `settings.js`.
+Sentinel also looks for a `.sentinel-grants.json` file in the **userDir** (next to `settings.js`). This file is the backing store for the **Sentinel editor panel** — the Node-RED UI exposes admin API routes that read and write it directly, so operators can manage grants through the browser without touching `settings.js`.
 
 This separation is intentional. In hardened deployments `settings.js` is mounted read-only (the Docker section mounts it `:ro`) so it cannot be modified at runtime. `.sentinel-grants.json` lives in the writable userDir (`/data` in Docker), giving the UI panel a place to persist changes. The two files have different ownership: `settings.js` is managed by deployment tooling; `.sentinel-grants.json` is managed by the UI.
 
-The file grants access keyed on the **target node's type** rather than the caller's package name:
+#### File format
+
+The file has two top-level sections:
 
 ```json
 {
-    "target-node-type": {
-        "node:credentials:read": ["node-red-contrib-reader"]
+    "packages": {
+        "node-red-contrib-my-package": ["registry:register", "node:credentials:read"]
+    },
+    "nodeTypes": {
+        "my-config-node": {
+            "node:credentials:read": ["node-red-contrib-trusted-consumer"]
+        }
     }
 }
 ```
 
-This is purely additive: if the caller is in the list, access is granted immediately. If it is not, Sentinel falls through to `settings.js` as normal — the file cannot block anything that `settings.js` already allows.
+- **`packages`** — dynamic caller grants, equivalent to `settings.sentinel.allow`. Entries here are merged with `settings.js` at runtime. This is what the Sentinel UI writes when you add a package grant through the editor.
+- **`nodeTypes`** — per-node-type target permissions. Keyed on the **target node's type**, each entry lists which caller packages are allowed to perform a given operation on nodes of that type. This is used to restrict (or explicitly allow) access to a specific node type independently of the caller's package grants.
 
-The one place it does restrict behaviour is the config node default. Normally any caller can read a config node's credentials without any grant (see above). If you add a `node:credentials:read` entry for a config node type in `.sentinel-grants.json`, that default is suppressed and access is limited to the listed callers (plus whatever `settings.js` grants):
+#### Node-type permissions — real-world examples
+
+**Grant specific packages access to a config node's credentials**
+
+To list which packages may read a config node's credentials via `getNode(id).credentials`, add the config node type to `nodeTypes`:
 
 ```json
 {
-    "my-config-node": {
-        "node:credentials:read": ["node-red-contrib-trusted-consumer"]
+    "nodeTypes": {
+        "influxdb": {
+            "node:credentials:read": ["node-red-contrib-influxdb"]
+        }
     }
 }
 ```
 
-With this in place, `node-red-contrib-trusted-consumer` can read `my-config-node` credentials via the permissions file, and any package that has `node:credentials:read` in `settings.js` can still read them too. Packages with neither are blocked, even though `my-config-node` is a config node.
+Only `node-red-contrib-influxdb` gets step-1 access via the target allowlist. Any other package without `node:credentials:read` in its grant list is blocked.
+
+**Document that no caller is listed for a config node type**
+
+An empty array `[]` records that no package is an approved caller via the target-side check. It has the same effect as not having an entry — neither grants step-1 access. Use it to make the intent explicit in the grants file:
+
+```json
+{
+    "nodeTypes": {
+        "my-vault-config": {
+            "node:credentials:read": []
+        }
+    }
+}
+```
+
+No package can read credentials from `my-vault-config` nodes through the target-based check. A package that has `node:credentials:read` in its `packages` entry (either in `settings.js` or in the `packages` section of this file) can still override this — the `[]` only closes the target-based path, not the caller-based path.
+
+**Allow multiple consumers, block all others**
+
+```json
+{
+    "nodeTypes": {
+        "mqtt-broker": {
+            "node:credentials:read": [
+                "node-red-contrib-mqtt-in",
+                "node-red-contrib-mqtt-out",
+                "node-red-contrib-mqtt-dynamic"
+            ]
+        }
+    }
+}
+```
+
+**Restrict wire rewiring to a specific tool package**
+
+```json
+{
+    "nodeTypes": {
+        "function": {
+            "node:wires:write": ["node-red-contrib-flow-manager"],
+            "node:wires:read":  ["node-red-contrib-flow-manager", "node-red-contrib-flow-auditor"]
+        }
+    }
+}
+```
+
+**Complete example combining both sections**
+
+```json
+{
+    "packages": {
+        "node-red-contrib-influxdb":   ["registry:register", "node:credentials:read"],
+        "node-red-contrib-flow-audit": ["registry:register", "node:list"]
+    },
+    "nodeTypes": {
+        "influxdb": {
+            "node:credentials:read": ["node-red-contrib-influxdb"]
+        },
+        "mqtt-broker": {
+            "node:credentials:read": ["node-red-contrib-mqtt-in", "node-red-contrib-mqtt-out"]
+        },
+        "my-internal-config": {
+            "node:credentials:read": []
+        }
+    }
+}
+```
+
+The `nodeTypes` section is purely additive: if the caller is in the list, access is granted immediately. If it is not, Sentinel falls through to the `packages` section and `settings.js` grants as normal. An entry here cannot block a package that already holds the capability in its grants.
 
 ### Grants are per package, not per node type
 
@@ -424,6 +506,23 @@ sentinel: {
 ```
 
 This pattern is useful when multiple consumer packages need the same privileged operation: centralise it in one well-audited service package, grant only that package the capability, and consumers remain unprivileged. The service becomes the policy enforcement point — it decides what it exposes, and Sentinel enforces that nothing bypasses it.
+
+## Defense architecture
+
+Sentinel runs inside the same Node.js process as every package it protects against — there is no sandbox, no separate process, and no OS-level isolation. Meaningful enforcement in that environment requires layered hardening techniques:
+
+| Layer | Technique | What it closes |
+|---|---|---|
+| 0 — Prototype hardening | `Object.preventExtensions` on all built-in prototypes | Prototype pollution before any third-party code runs |
+| 1 — Module interception | `Module._load` hook + non-configurable lock | `require()` of `fs`, `http`, `child_process`, `vm`, `worker_threads` |
+| 2 — Node isolation | ES6 `Proxy` on every `getNode()` return value | Property reads, writes, and `defineProperty` on live node instances |
+| 3 — Surface hardening | Guarded Express routing, `process.env` Proxy, router-stack Proxy | Post-init manipulation of the HTTP server and environment |
+| 4 — Network policy | Outbound HTTP/HTTPS/socket allowlist | Exfiltration paths not covered by the module gate |
+| Cross-cutting | Intrinsic capture, call-stack introspection, file integrity watchdog | Prototype mutation of guard helpers, call-identity forgery, on-disk tampering |
+
+All built-in methods used by guard logic are pinned as standalone bound functions before the first `require()`, so a package that overwrites `String.prototype.includes` cannot blind the stack-frame checks. The `Module._load` hook is locked `configurable: false` immediately after installation so it cannot be stripped. Every node proxy intercepts `defineProperty` in addition to `get`/`set`, closing the bypass that would otherwise let a caller install a getter on a proxied node.
+
+For the full reference — every technique explained with code examples and attack scenarios — see **[docs/defense-techniques.md](docs/defense-techniques.md)**.
 
 
 ## Module access gates
