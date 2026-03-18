@@ -1,3 +1,10 @@
+## [1.0.3](https://github.com/AllanOricil/nrg-sentinel/compare/v1.0.2...v1.0.3) (2026-03-18)
+
+
+### Bug Fixes
+
+* **release:** move landing page to repo root for GitHub Pages ([c1a1844](https://github.com/AllanOricil/nrg-sentinel/commit/c1a18442e498561e60e1ac1d9144ed33afd76d21))
+
 ## [1.0.2](https://github.com/AllanOricil/nrg-sentinel/compare/v1.0.1...v1.0.2) (2026-03-18)
 
 
