@@ -52,7 +52,7 @@ The table below is updated automatically after each CI run on `main`.
 | 32 | Flows Inject | ✅ | `4.1.7` |
 | 33 | Node Event Hijack | ✅ | `4.1.7` |
 | 34 | Config Node Credentials | ✅ | `4.1.7` |
-_Last updated: 2026-03-18T03:24:39Z_
+_Last updated: 2026-03-18T03:37:28Z_
 <!-- DEMO-TEST-RESULTS:END -->
 
 ## Demos

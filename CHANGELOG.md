@@ -1,3 +1,10 @@
+## [1.0.4](https://github.com/AllanOricil/nrg-sentinel/compare/v1.0.3...v1.0.4) (2026-03-18)
+
+
+### Bug Fixes
+
+* **site:** collapse empty grid column in change-control section ([b2cec09](https://github.com/AllanOricil/nrg-sentinel/commit/b2cec09a7a6364cc4130d291e6371fa71907ecec))
+
 ## [1.0.3](https://github.com/AllanOricil/nrg-sentinel/compare/v1.0.2...v1.0.3) (2026-03-18)
 
 
